@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "shilp-sdk"
+version = "0.1.0"
+description = "Official Python SDK for the Shilp Vector Database API"
+readme = "README.md"
+requires-python = ">=3.7"
+license = {file = "LICENSE"}
+authors = [
+    {name = "Anvitra AI", email = "support@anvitra.ai"}
+]
+keywords = ["shilp", "vector-database", "sdk", "embedding", "search"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+    "requests>=2.25.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=6.0",
+    "pytest-cov>=2.0",
+    "black>=21.0",
+    "mypy>=0.900",
+]
+
+[project.urls]
+Homepage = "https://github.com/anvitra-ai/shilp-sdk-py"
+Repository = "https://github.com/anvitra-ai/shilp-sdk-py"
+Documentation = "https://github.com/anvitra-ai/shilp-sdk-py#readme"
+"Bug Tracker" = "https://github.com/anvitra-ai/shilp-sdk-py/issues"
+
+[tool.setuptools]
+packages = ["shilp"]
+
+[tool.setuptools.package-data]
+shilp = ["py.typed"]
