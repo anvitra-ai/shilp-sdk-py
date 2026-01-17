@@ -735,7 +735,7 @@ class Client:
             GenericResponse indicating success or failure
         """
         json_data = {"replica_id": replica_id}
-        data = self._request("POST", "/api/oplog/v1/register", json_data=json_data)
+        data = self._request("POST", "/api/oplog/v1/unregister", json_data=json_data)
         return GenericResponse(**data)
 
     def get_oplog_status(self, collection: str) -> OplogStatusResponse:
