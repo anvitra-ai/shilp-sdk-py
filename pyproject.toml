@@ -4,13 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "shilp-sdk"
-version = "0.1.0"
+version = "0.10.0"
 description = "Official Python SDK for the Shilp Vector Database API"
 readme = "README.md"
 requires-python = ">=3.7"
 license = {file = "LICENSE"}
 authors = [
-    {name = "Anvitra AI", email = "support@anvitra.ai"}
+    {name = "Anvitra AI", email = "hi@anvitra.ai"}
 ]
 keywords = ["shilp", "vector-database", "sdk", "embedding", "search"]
 classifiers = [

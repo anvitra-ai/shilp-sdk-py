@@ -9,7 +9,7 @@ This example demonstrates:
 - Cleaning up resources
 """
 
-from shilp import Client, AddCollectionRequest, InsertRecordRequest, SearchRequest
+from shilp import Client, AddCollectionRequest, InsertRecordRequest, SearchRequest, StorageBackendType
 
 
 def main():
@@ -35,7 +35,7 @@ def main():
 
     # Create a new collection
     print(f"\nCreating collection: {collection_name}")
-    response = client.add_collection(AddCollectionRequest(name=collection_name))
+    response = client.add_collection(AddCollectionRequest(name=collection_name, storage_type=StorageBackendType.FILE, reference_storage_type=StorageBackendType.FILE))
     print(f"✓ Collection created: {response.success}")
 
     # Insert records
@@ -46,19 +46,16 @@ def main():
             "id": "doc-1",
             "title": "Introduction to Vector Databases",
             "content": "Vector databases are specialized databases for storing and querying high-dimensional vectors.",
-            "vector": [0.1, 0.2, 0.3, 0.4, 0.5],
         },
         {
             "id": "doc-2",
             "title": "Machine Learning Basics",
             "content": "Machine learning is a subset of artificial intelligence that focuses on learning from data.",
-            "vector": [0.2, 0.3, 0.1, 0.5, 0.4],
         },
         {
             "id": "doc-3",
             "title": "Building Search Systems",
             "content": "Search systems use various algorithms to find relevant information quickly and efficiently.",
-            "vector": [0.3, 0.1, 0.4, 0.2, 0.5],
         },
     ]
 
@@ -70,8 +67,8 @@ def main():
                 record={
                     "title": record["title"],
                     "content": record["content"],
-                    "vector": record["vector"],
                 },
+                fields=["title", "content"],
             )
         )
         print(f"  ✓ Inserted record: {record['id']}")

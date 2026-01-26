@@ -32,6 +32,19 @@ class SortOrder(IntEnum):
     DESCENDING = 1
 
 
+class StorageBackendType(IntEnum):
+    """Type of storage backend for persistence."""
+    DOES_NOT_EXIST = -1
+    FILE = 1
+    S3 = 2
+
+
+class IngestSourceType:
+    """Type of ingestion source."""
+    FILE = "file"
+    MONGODB = "mongodb"
+
+
 class OpType:
     """Operation type in the oplog."""
     INSERT = "insert"
@@ -65,6 +78,17 @@ class Collection:
     metadata: Optional[List[MetadataColumnSchema]] = None
     has_metadata_enabled: bool = False
     no_reference_storage: bool = False
+    storage_type: StorageBackendType = StorageBackendType.FILE
+    reference_storage_type: StorageBackendType = StorageBackendType.FILE
+
+
+@dataclass
+class MetadataSupportInfo:
+    """Metadata support information."""
+    support_metadata: bool
+    name: str
+    type: StorageBackendType
+    is_default: bool
 
 
 @dataclass
@@ -73,7 +97,7 @@ class ListCollectionsResponse:
     success: bool
     message: str
     data: List[Collection]
-    support_metadata: bool = False
+    metadata_info: Optional[List[MetadataSupportInfo]] = None
 
 
 @dataclass
@@ -82,6 +106,8 @@ class AddCollectionRequest:
     name: str
     no_reference_storage: bool = False
     has_metadata_storage: bool = False
+    storage_type: Optional[StorageBackendType] = None
+    reference_storage_type: Optional[StorageBackendType] = None
 
 
 @dataclass
@@ -120,9 +146,20 @@ class InsertRecordResponse:
 @dataclass
 class IngestRequest:
     """Request to ingest data."""
-    file_path: str
-    collection_name: str
-    fields: List[str]
+    # Source configuration - use either file_path OR MongoDB settings
+    # file_path has the path to the file to be ingested or 'database/collection' for MongoDB
+    file_path: Optional[str] = None
+    source_type: Optional[str] = None  # "file" or "mongodb"
+    
+    # MongoDB source configuration
+    database_name: Optional[str] = None
+    mongo_collection: Optional[str] = None
+    query: Optional[Dict[str, Any]] = None
+    mongo_fetch_batch_size: Optional[int] = None
+    
+    # Common configuration
+    collection_name: str = ""
+    fields: Optional[List[str]] = None
     keyword_fields: Optional[List[str]] = None
     metadata_fields: Optional[Dict[str, AttrType]] = None
     id_field: Optional[str] = None
@@ -138,6 +175,23 @@ class IngestResponse:
     success: bool
     message: str
     details: Optional[List[str]] = None
+
+
+@dataclass
+class FileReaderOptions:
+    """Options for reading files."""
+    source: Optional[str] = None  # IngestSourceType
+    mongo_filter: Optional[Dict[str, Any]] = None
+    skip: int = 0
+    limit: int = 0
+
+
+@dataclass
+class ListIngestionSourcesResponse:
+    """Response for listing ingestion sources."""
+    message: str
+    success: bool
+    data: Optional[List[str]] = None
 
 
 @dataclass
@@ -229,8 +283,9 @@ class SearchRequest:
 class SearchResponse:
     """Response for searching data."""
     success: bool
-    message: str
     data: List[Dict[str, Any]]
+    
+    message: Optional[str] = None
 
 
 @dataclass
@@ -449,3 +504,66 @@ class GetOplogResponse:
     entries: List[OplogEntry]
     last_lsn: int
     count: int
+
+
+class SyncStatus:
+    """Sync status for replicas."""
+    READY = "ready"
+    SYNCING = "syncing"
+
+
+class ReplicaType(IntEnum):
+    """Type of replica."""
+    READ_REPLICA = 0
+    WRITE_REPLICA = 1
+    SINGLE_NODE = 2
+
+
+@dataclass
+class Replica:
+    """Replica information."""
+    id: str
+    address: str
+    is_healthy: bool
+    is_syncing: bool  # Traffic gate - if true, no traffic sent
+
+
+@dataclass
+class Status:
+    """Overall status of the registry."""
+    write_replica: Replica
+    read_replicas: List[Replica]
+    available: int
+    total: int
+
+
+@dataclass
+class ProxyStats:
+    """Proxy statistics."""
+    active_proxies: int
+    targets: List[str]
+
+
+@dataclass
+class DiscoveryStats:
+    """Discovery statistics."""
+    registry: Status
+    proxy: ProxyStats
+
+
+@dataclass
+class UpdateSyncStatusRequest:
+    """Request to update sync status."""
+    account_id: str
+    address: str
+    status: str  # SyncStatus
+
+
+@dataclass
+class RegisterToDiscoveryRequest:
+    """Request to register to discovery service."""
+    account_id: str
+    address: str
+    id: str
+    is_read: bool
+    is_write: bool

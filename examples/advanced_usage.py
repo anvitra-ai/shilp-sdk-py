@@ -22,6 +22,7 @@ from shilp import (
     FilterOp,
     SortOrder,
     AttrType,
+    StorageBackendType,
 )
 
 
@@ -56,7 +57,9 @@ def main():
     
     client.add_collection(AddCollectionRequest(
         name=collection_name,
-        has_metadata_storage=True
+        has_metadata_storage=True,
+        storage_type=StorageBackendType.FILE,
+        reference_storage_type=StorageBackendType.FILE,
     ))
     print(f"✓ Created collection: {collection_name}")
 

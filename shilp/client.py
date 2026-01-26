@@ -11,11 +11,14 @@ from shilp.models import (
     HealthResponse,
     ListCollectionsResponse,
     Collection,
+    MetadataSupportInfo,
     AddCollectionRequest,
     InsertRecordRequest,
     InsertRecordResponse,
     IngestRequest,
     IngestResponse,
+    ListIngestionSourcesResponse,
+    FileReaderOptions,
     SearchRequest,
     SearchResponse,
     ListStorageResponse,
@@ -32,6 +35,7 @@ from shilp.models import (
     UpdateReplicaLSNResponse,
     RegisterReplicaRequest,
     UnRegisterReplicaRequest,
+    StorageBackendType,
 )
 
 
@@ -195,8 +199,21 @@ class Client:
                     metadata=c.get('metadata'),
                     has_metadata_enabled=c.get('has_metadata_enabled', False),
                     no_reference_storage=c.get('no_reference_storage', False),
+                    storage_type=StorageBackendType(c.get('storage_type', 0)),
+                    reference_storage_type=StorageBackendType(c.get('reference_storage_type', 0)),
                 )
                 for c in data['data']
+            ]
+        # Convert metadata_info
+        if 'metadata_info' in data and data['metadata_info']:
+            data['metadata_info'] = [
+                MetadataSupportInfo(
+                    support_metadata=m['support_metadata'],
+                    name=m['name'],
+                    type=StorageBackendType(m['type']),
+                    is_default=m['is_default'],
+                )
+                for m in data['metadata_info']
             ]
         return ListCollectionsResponse(**data)
 
@@ -215,6 +232,10 @@ class Client:
             "no_reference_storage": request.no_reference_storage,
             "has_metadata_storage": request.has_metadata_storage,
         }
+        if request.storage_type is not None:
+            json_data["storage_type"] = request.storage_type
+        if request.reference_storage_type is not None:
+            json_data["reference_storage_type"] = request.reference_storage_type
         data = self._request("POST", "/api/collections/v1/", json_data=json_data)
         return GenericResponse(**data)
 
@@ -398,10 +419,27 @@ class Client:
             IngestResponse indicating success or failure
         """
         json_data = {
-            "file_path": request.file_path,
             "collection_name": request.collection_name,
-            "fields": request.fields,
         }
+        # Source configuration
+        if request.file_path is not None:
+            json_data["file_path"] = request.file_path
+        if request.source_type is not None:
+            json_data["source_type"] = request.source_type
+        
+        # MongoDB source configuration
+        if request.database_name is not None:
+            json_data["database_name"] = request.database_name
+        if request.mongo_collection is not None:
+            json_data["mongo_collection"] = request.mongo_collection
+        if request.query is not None:
+            json_data["query"] = request.query
+        if request.mongo_fetch_batch_size is not None:
+            json_data["mongo_fetch_batch_size"] = request.mongo_fetch_batch_size
+        
+        # Common configuration
+        if request.fields is not None:
+            json_data["fields"] = request.fields
         if request.keyword_fields is not None:
             json_data["keyword_fields"] = request.keyword_fields
         if request.metadata_fields is not None:
@@ -451,12 +489,14 @@ class Client:
         return SearchResponse(**data)
 
     # Storage Operations
-    def list_storage(self, path: str = "") -> ListStorageResponse:
+    def list_storage(self, path: str = "", source: Optional[str] = None) -> ListStorageResponse:
         """
         List contents of a directory in uploads storage.
+        If the source is mongodb, then empty path lists all DBs. If path is a DB, lists all collections in that DB.
 
         Args:
             path: Directory path (optional)
+            source: Source type ("file" or "mongodb", optional)
 
         Returns:
             ListStorageResponse with storage items
@@ -464,18 +504,21 @@ class Client:
         params = {}
         if path:
             params["path"] = path
+        if source:
+            params["source"] = source
         
         data = self._request("GET", "/api/data/v1/storage/list", params=params)
         return ListStorageResponse(**data)
 
-    def read_document(self, path: str, rows: int = 0, skip: int = 0) -> ReadDocumentResponse:
+    def read_document(self, path: str, options: Optional[FileReaderOptions] = None) -> ReadDocumentResponse:
         """
-        Read the first few rows of a CSV document.
+        Read the first few rows of a CSV document or MongoDB collection.
+        If the source is mongodb, then path is in the format "database/collection".
+        options.mongo_filter can be used to filter the documents returned in case of mongodb.
 
         Args:
-            path: Path to the document
-            rows: Number of rows to read (default: 0 for all)
-            skip: Number of rows to skip (default: 0)
+            path: Path to the document or "database/collection" for MongoDB
+            options: FileReaderOptions with read parameters (optional)
 
         Returns:
             ReadDocumentResponse with document data
@@ -485,16 +528,25 @@ class Client:
         """
         if not path:
             raise ValueError("path cannot be empty")
-        if rows < 0:
-            raise ValueError("rows cannot be negative")
-        if skip < 0:
+        
+        if options is None:
+            options = FileReaderOptions()
+        
+        if options.limit < 0:
+            raise ValueError("limit cannot be negative")
+        if options.skip < 0:
             raise ValueError("skip cannot be negative")
 
         params = {"path": path}
-        if rows > 0:
-            params["rows"] = str(rows)
-        if skip > 0:
-            params["skip"] = str(skip)
+        if options.source:
+            params["source"] = options.source
+        if options.limit > 0:
+            params["rows"] = str(options.limit)
+        if options.skip > 0:
+            params["skip"] = str(options.skip)
+        if options.source == "mongodb" and options.mongo_filter:
+            import json
+            params["mongo_filter"] = json.dumps(options.mongo_filter)
 
         data = self._request("GET", "/api/data/v1/storage/read", params=params)
         return ReadDocumentResponse(**data)
@@ -508,6 +560,16 @@ class Client:
         """
         data = self._request("GET", "/api/data/v1/embedding/models")
         return ListEmbeddingModelsResponse(**data)
+
+    def list_ingest_sources(self) -> ListIngestionSourcesResponse:
+        """
+        List all available ingestion sources.
+
+        Returns:
+            ListIngestionSourcesResponse with available ingestion sources
+        """
+        data = self._request("GET", "/api/data/v1/ingest/sources")
+        return ListIngestionSourcesResponse(**data)
 
     def stream_ingest_stats(self, collection: str, callback: Callable[[str], None]) -> None:
         """
