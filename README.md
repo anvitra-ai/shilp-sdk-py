@@ -39,7 +39,13 @@ except:
     pass
 
 # Create a new collection
-client.add_collection(AddCollectionRequest(name="my-collection"))
+client.add_collection(
+    AddCollectionRequest(
+        name="my-collection",
+        storage_type=StorageBackendType.FILE,
+        reference_storage_type=StorageBackendType.FILE
+    )
+)
 
 # Insert a record
 client.insert_record(InsertRecordRequest(
@@ -47,8 +53,9 @@ client.insert_record(InsertRecordRequest(
     id="record-1",
     record={
         "title": "Hello World",
-        "vector": [0.1, 0.2, 0.3],
+        "content": "This my test description"
     },
+    fields=["title", "content"],
 ))
 
 # Flush collection (important after inserting records)
@@ -207,6 +214,7 @@ for provider in models.data:
 Initialize the Shilp API client.
 
 **Parameters:**
+
 - `base_url`: Base URL of the Shilp server (e.g., "http://localhost:3000")
 - `timeout`: Request timeout in seconds (default: 30)
 - `session`: Optional custom requests.Session instance

@@ -35,7 +35,13 @@ def main():
 
     # Create a new collection
     print(f"\nCreating collection: {collection_name}")
-    response = client.add_collection(AddCollectionRequest(name=collection_name, storage_type=StorageBackendType.FILE, reference_storage_type=StorageBackendType.FILE))
+    response = client.add_collection(
+        AddCollectionRequest(
+            name=collection_name, 
+            storage_type=StorageBackendType.FILE, 
+            reference_storage_type=StorageBackendType.FILE
+        )
+    )
     print(f"✓ Collection created: {response.success}")
 
     # Insert records
