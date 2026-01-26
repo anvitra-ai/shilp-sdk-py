@@ -7,10 +7,12 @@ from unittest.mock import Mock, patch, MagicMock
 from shilp.client import Client
 from shilp.models import (
     AddCollectionRequest,
+    FileReaderOptions,
     InsertRecordRequest,
     SearchRequest,
     HealthResponse,
     GenericResponse,
+    StorageBackendType,
 )
 
 
@@ -71,7 +73,7 @@ class TestClient:
         
         # Create client and call add_collection
         client = Client("http://localhost:3000")
-        request = AddCollectionRequest(name="test-collection")
+        request = AddCollectionRequest(name="test-collection", storage_type=StorageBackendType.FILE, reference_storage_type=StorageBackendType.FILE)
         result = client.add_collection(request)
         
         # Verify
@@ -105,20 +107,20 @@ class TestClient:
     def test_read_document_validation(self):
         """Test read_document parameter validation."""
         client = Client("http://localhost:3000")
+
+        options = FileReaderOptions(limit=10, skip=0)
         
         # Empty path should raise ValueError
         with pytest.raises(ValueError, match="path cannot be empty"):
-            client.read_document("", rows=10)
+            client.read_document("", options=options)
         
         # Negative rows should raise ValueError
-        with pytest.raises(ValueError, match="rows cannot be negative"):
-            client.read_document("/some/path", rows=-1)
+        with pytest.raises(ValueError, match="limit cannot be negative"):
+            client.read_document("/some/path", options=FileReaderOptions(limit=-1, skip=0))
         
         # Negative skip should raise ValueError
         with pytest.raises(ValueError, match="skip cannot be negative"):
-            client.read_document("/some/path", rows=10, skip=-1)
-
-
+            client.read_document("/some/path", options=FileReaderOptions(limit=10, skip=-1))
 class TestClientRequestBuilding:
     """Test Client request building logic."""
 
