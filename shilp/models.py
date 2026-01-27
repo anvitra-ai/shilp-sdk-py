@@ -131,6 +131,8 @@ class InsertRecordRequest:
     embedding_provider: Optional[str] = None
     fields: Optional[List[str]] = None
     keyword_fields: Optional[List[str]] = None
+    # Map of field name to vector data - if present, will be used instead of embedding generation
+    vectors: Optional[Dict[str, List[float]]] = None
     model: Optional[str] = None
 
 
