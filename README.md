@@ -1,5 +1,7 @@
 # Shilp Python SDK
 
+[![PyPI version](https://badge.fury.io/py/shilp-sdk.svg)](https://pypi.org/project/shilp-sdk/)
+
 Official Python SDK for the Shilp Vector Database API.
 
 ## Installation
