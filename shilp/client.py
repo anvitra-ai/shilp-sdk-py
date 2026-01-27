@@ -489,6 +489,19 @@ class Client:
         return SearchResponse(**data)
 
     # Storage Operations
+    def upload_data_file(self, file_path: str) -> GenericResponse:
+        """
+        Upload a data file to storage.
+
+        Args:
+            file_path: Path to the file to upload
+
+        Returns:
+            GenericResponse indicating success or failure
+        """
+        data = self._upload_file("/api/data/v1/storage/upload", file_path)
+        return GenericResponse(**data)
+
     def list_storage(self, path: str = "", source: Optional[str] = None) -> ListStorageResponse:
         """
         List contents of a directory in uploads storage.
@@ -550,7 +563,7 @@ class Client:
 
         data = self._request("GET", "/api/data/v1/storage/read", params=params)
         return ReadDocumentResponse(**data)
-
+    
     def list_embedding_models(self) -> ListEmbeddingModelsResponse:
         """
         List all available embedding providers and their models.
