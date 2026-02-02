@@ -490,7 +490,7 @@ class Client:
         if not request.collection:
             raise ValueError("collection name cannot be empty")
         if not request.query and not request.vector_query:
-            raise ValueError("both vector_query and query cannot be empty")
+            raise ValueError("at least one of query or vector_query must be provided")
 
         json_data = {
             "collection": request.collection,
