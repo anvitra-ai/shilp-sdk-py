@@ -201,6 +201,7 @@ class Client:
                     no_reference_storage=c.get('no_reference_storage', False),
                     storage_type=StorageBackendType(c.get('storage_type', 0)),
                     reference_storage_type=StorageBackendType(c.get('reference_storage_type', 0)),
+                    is_pq_enabled=c.get('is_pq_enabled', False),
                 )
                 for c in data['data']
             ]
@@ -231,6 +232,7 @@ class Client:
             "name": request.name,
             "no_reference_storage": request.no_reference_storage,
             "has_metadata_storage": request.has_metadata_storage,
+            "enable_pq": request.enable_pq,
         }
         if request.storage_type is not None:
             json_data["storage_type"] = request.storage_type
@@ -316,6 +318,19 @@ class Client:
             GenericResponse indicating success or failure
         """
         data = self._request("PUT", f"/api/collections/v1/{name}/reindex")
+        return GenericResponse(**data)
+
+    def pq_train(self, collection_name: str) -> GenericResponse:
+        """
+        Perform Product Quantization training for an existing collection.
+
+        Args:
+            collection_name: Name of the collection to train PQ on
+
+        Returns:
+            GenericResponse indicating success or failure
+        """
+        data = self._request("POST", f"/api/collections/v1/{collection_name}/pq-train")
         return GenericResponse(**data)
 
     def delete_record(self, collection_name: str, record_id: str) -> GenericResponse:
@@ -467,7 +482,15 @@ class Client:
 
         Returns:
             SearchResponse with search results
+
+        Raises:
+            ValueError: If collection name is empty or both query and vector_query are empty
         """
+        if not request.collection:
+            raise ValueError("Collection name cannot be empty")
+        if not request.query and not request.vector_query:
+            raise ValueError("At least one of query or vector_query must be provided")
+
         json_data = {
             "collection": request.collection,
             "query": request.query,
@@ -484,6 +507,8 @@ class Client:
             json_data["filters"] = request.filters.to_dict()
         if request.sort is not None:
             json_data["sort"] = request.sort.to_dict()
+        if request.vector_query is not None:
+            json_data["vector_query"] = request.vector_query
 
         data = self._request("POST", "/api/data/v1/search", json_data=json_data)
         return SearchResponse(**data)

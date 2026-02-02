@@ -80,6 +80,7 @@ class Collection:
     no_reference_storage: bool = False
     storage_type: StorageBackendType = StorageBackendType.FILE
     reference_storage_type: StorageBackendType = StorageBackendType.FILE
+    is_pq_enabled: bool = False
 
 
 @dataclass
@@ -108,6 +109,7 @@ class AddCollectionRequest:
     has_metadata_storage: bool = False
     storage_type: Optional[StorageBackendType] = None
     reference_storage_type: Optional[StorageBackendType] = None
+    enable_pq: bool = False
 
 
 @dataclass
@@ -272,13 +274,14 @@ class CompoundSort:
 class SearchRequest:
     """Request body for POST search."""
     collection: str
-    query: str
+    query: str = ""
     fields: Optional[List[str]] = None
     limit: Optional[int] = None
     weights: Optional[Dict[str, float]] = None
     max_distance: Optional[float] = None
     filters: Optional[CompoundFilter] = None
     sort: Optional[CompoundSort] = None
+    vector_query: Optional[List[float]] = None
 
 
 @dataclass
