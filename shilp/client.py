@@ -232,13 +232,12 @@ class Client:
             "name": request.name,
             "no_reference_storage": request.no_reference_storage,
             "has_metadata_storage": request.has_metadata_storage,
+            "enable_pq": request.enable_pq,
         }
         if request.storage_type is not None:
             json_data["storage_type"] = request.storage_type
         if request.reference_storage_type is not None:
             json_data["reference_storage_type"] = request.reference_storage_type
-        if request.enable_pq:
-            json_data["enable_pq"] = request.enable_pq
         data = self._request("POST", "/api/collections/v1/", json_data=json_data)
         return GenericResponse(**data)
 
@@ -488,9 +487,9 @@ class Client:
             ValueError: If collection name is empty or both query and vector_query are empty
         """
         if not request.collection:
-            raise ValueError("collection name cannot be empty")
+            raise ValueError("Collection name cannot be empty")
         if not request.query and not request.vector_query:
-            raise ValueError("at least one of query or vector_query must be provided")
+            raise ValueError("At least one of query or vector_query must be provided")
 
         json_data = {
             "collection": request.collection,
