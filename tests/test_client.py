@@ -13,6 +13,14 @@ from shilp.models import (
     HealthResponse,
     GenericResponse,
     StorageBackendType,
+    DebugGetEmbeddingsRequest,
+    DebugDistanceData,
+    DebugDistanceResponse,
+    GetCollectionDataResponse,
+    CollectionDataRecord,
+    GetCollectionSchemaResponse,
+    ListNLIVerticalsResponse,
+    VerticalInfo,
 )
 
 
@@ -167,6 +175,254 @@ class TestClientRequestBuilding:
         call_args = mock_session.request.call_args
         assert call_args[1]['json']['name'] == 'test-collection'
         assert call_args[1]['json']['has_metadata_storage'] is True
+
+
+class TestNewV013Methods:
+    """Test new v0.13.0 methods."""
+
+    @patch('shilp.client.requests.Session')
+    def test_get_collection_distance_with_custom_matcher_text(self, mock_session_class):
+        """Test get_collection_distance with custom_matcher_text parameter."""
+        mock_session = Mock()
+        mock_session_class.return_value = mock_session
+
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "success": True,
+            "message": "OK",
+            "data": {
+                "distance": 0.5,
+                "vector": [0.1, 0.2, 0.3],
+                "custom_matcher_distance": 0.3,
+            }
+        }
+        mock_response.content = b'{"success": true}'
+        mock_session.request.return_value = mock_response
+
+        client = Client("http://localhost:3000")
+        result = client.get_collection_distance(
+            "my-collection", "field1", 42, "hello world", custom_matcher_text="custom text"
+        )
+
+        assert isinstance(result, DebugDistanceResponse)
+        assert isinstance(result.data, DebugDistanceData)
+        assert result.data.distance == 0.5
+        assert result.data.custom_matcher_distance == 0.3
+        assert result.data.vector == [0.1, 0.2, 0.3]
+
+        call_args = mock_session.request.call_args
+        assert call_args[1]['params']['text'] == 'hello world'
+        assert call_args[1]['params']['custom_matcher_text'] == 'custom text'
+
+    @patch('shilp.client.requests.Session')
+    def test_get_collection_distance_without_custom_matcher_text(self, mock_session_class):
+        """Test get_collection_distance without custom_matcher_text uses no extra param."""
+        mock_session = Mock()
+        mock_session_class.return_value = mock_session
+
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "success": True,
+            "message": "OK",
+            "data": {"distance": 0.7, "vector": [0.4, 0.5], "custom_matcher_distance": None}
+        }
+        mock_response.content = b'{"success": true}'
+        mock_session.request.return_value = mock_response
+
+        client = Client("http://localhost:3000")
+        result = client.get_collection_distance("my-collection", "field1", 1, "text")
+
+        call_args = mock_session.request.call_args
+        assert 'custom_matcher_text' not in call_args[1]['params']
+
+    @patch('shilp.client.requests.Session')
+    def test_get_collection_embeddings(self, mock_session_class):
+        """Test get_collection_embeddings method."""
+        mock_session = Mock()
+        mock_session_class.return_value = mock_session
+
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "success": True,
+            "message": "OK",
+            "data": [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]],
+        }
+        mock_response.content = b'{"success": true}'
+        mock_session.request.return_value = mock_response
+
+        client = Client("http://localhost:3000")
+        req = DebugGetEmbeddingsRequest(texts=["hello", "world"])
+        result = client.get_collection_embeddings("my-collection", req)
+
+        assert result.success is True
+        assert result.data == [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]
+
+        call_args = mock_session.request.call_args
+        assert call_args[1]['method'] == 'POST'
+        assert '/api/collections/v1/debug/my-collection/embedding' in call_args[1]['url']
+        assert call_args[1]['json']['texts'] == ['hello', 'world']
+
+    @patch('shilp.client.requests.Session')
+    def test_get_collection_data(self, mock_session_class):
+        """Test get_collection_data method."""
+        mock_session = Mock()
+        mock_session_class.return_value = mock_session
+
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "success": True,
+            "message": "OK",
+            "data": [
+                {"id": "1", "data": {"field": "value"}, "vectors": None},
+                {"id": "2", "data": {"field": "value2"}},
+            ],
+            "total": 2,
+        }
+        mock_response.content = b'{"success": true}'
+        mock_session.request.return_value = mock_response
+
+        client = Client("http://localhost:3000")
+        result = client.get_collection_data("my-collection", 0, 10)
+
+        assert isinstance(result, GetCollectionDataResponse)
+        assert result.total == 2
+        assert len(result.data) == 2
+        assert isinstance(result.data[0], CollectionDataRecord)
+        assert result.data[0].id == "1"
+
+        call_args = mock_session.request.call_args
+        assert call_args[1]['params']['offset'] == 0
+        assert call_args[1]['params']['limit'] == 10
+
+    @patch('shilp.client.requests.Session')
+    def test_get_collection_schema(self, mock_session_class):
+        """Test get_collection_schema method."""
+        mock_session = Mock()
+        mock_session_class.return_value = mock_session
+
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "success": True,
+            "message": "OK",
+            "data": {
+                "attributes": [
+                    {"name": "color", "type": 2, "index_type": "inverted", "is_metadata": False}
+                ],
+                "value_schema": [
+                    {
+                        "name": "color",
+                        "index_type": "inverted",
+                        "values": [{"value": "red", "count": 10}],
+                        "synonyms": ["hue"],
+                    }
+                ],
+            }
+        }
+        mock_response.content = b'{"success": true}'
+        mock_session.request.return_value = mock_response
+
+        client = Client("http://localhost:3000")
+        result = client.get_collection_schema("my-collection")
+
+        assert isinstance(result, GetCollectionSchemaResponse)
+        assert result.data is not None
+        assert len(result.data.attributes) == 1
+        assert result.data.attributes[0].name == "color"
+        assert len(result.data.value_schema) == 1
+        assert result.data.value_schema[0].values[0].value == "red"
+
+    @patch('shilp.client.requests.Session')
+    def test_list_nli_verticals(self, mock_session_class):
+        """Test list_nli_verticals method."""
+        mock_session = Mock()
+        mock_session_class.return_value = mock_session
+
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "success": True,
+            "message": "OK",
+            "data": [
+                {"name": "ecommerce", "label": "E-Commerce", "is_native": True},
+                {"name": "custom", "label": "Custom", "is_native": False},
+            ]
+        }
+        mock_response.content = b'{"success": true}'
+        mock_session.request.return_value = mock_response
+
+        client = Client("http://localhost:3000")
+        result = client.list_nli_verticals()
+
+        assert isinstance(result, ListNLIVerticalsResponse)
+        assert result.success is True
+        assert len(result.data) == 2
+        assert isinstance(result.data[0], VerticalInfo)
+        assert result.data[0].name == "ecommerce"
+        assert result.data[0].is_native is True
+
+        call_args = mock_session.request.call_args
+        assert '/api/data/v1/nli/verticals' in call_args[1]['url']
+
+    @patch('shilp.client.requests.Session')
+    def test_search_with_use_nli(self, mock_session_class):
+        """Test search_data includes use_nli when set."""
+        mock_session = Mock()
+        mock_session_class.return_value = mock_session
+
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"success": True, "data": [], "message": "OK"}
+        mock_response.content = b'{"success": true}'
+        mock_session.request.return_value = mock_response
+
+        client = Client("http://localhost:3000")
+        request = SearchRequest(collection="my-collection", query="search text", use_nli=True)
+        client.search_data(request)
+
+        call_args = mock_session.request.call_args
+        assert call_args[1]['json']['use_nli'] is True
+
+    @patch('shilp.client.requests.Session')
+    def test_list_collections_with_nli_fields(self, mock_session_class):
+        """Test list_collections handles new NLI fields in Collection."""
+        mock_session = Mock()
+        mock_session_class.return_value = mock_session
+
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "success": True,
+            "message": "OK",
+            "data": [
+                {
+                    "name": "test",
+                    "is_loaded": True,
+                    "fields": ["f1"],
+                    "searchable_fields": ["f1"],
+                    "storage_type": 1,
+                    "reference_storage_type": 1,
+                    "field_config": {"f1": "hnsw"},
+                    "is_nli_enabled": True,
+                    "nli_domain": "ecommerce",
+                }
+            ],
+            "is_nli_supported": True,
+        }
+        mock_response.content = b'{"success": true}'
+        mock_session.request.return_value = mock_response
+
+        client = Client("http://localhost:3000")
+        result = client.list_collections()
+
+        assert result.is_nli_supported is True
+        assert result.data[0].field_config == {"f1": "hnsw"}
+        assert result.data[0].is_nli_enabled is True
+        assert result.data[0].nli_domain == "ecommerce"
 
 
 if __name__ == "__main__":

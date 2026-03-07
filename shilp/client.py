@@ -24,11 +24,24 @@ from shilp.models import (
     ListStorageResponse,
     ReadDocumentResponse,
     ListEmbeddingModelsResponse,
+    DebugDistanceData,
     DebugDistanceResponse,
     DebugNodeInfoResponse,
     DebugLevelsResponse,
     DebugNodesAtLevelResponse,
     DebugReferenceNodeResponse,
+    DebugGetEmbeddingsRequest,
+    DebugGetEmbeddingsResponse,
+    GetCollectionDataResponse,
+    CollectionDataRecord,
+    GetCollectionSchemaResponse,
+    CollectionSchema,
+    Attribute,
+    AttributeType,
+    CategorySchema,
+    CategoryValue,
+    ListNLIVerticalsResponse,
+    VerticalInfo,
     OplogStatusResponse,
     GetOplogResponse,
     UpdateReplicaLSNRequest,
@@ -202,6 +215,9 @@ class Client:
                     storage_type=StorageBackendType(c.get('storage_type', 0)),
                     reference_storage_type=StorageBackendType(c.get('reference_storage_type', 0)),
                     is_pq_enabled=c.get('is_pq_enabled', False),
+                    field_config=c.get('field_config'),
+                    is_nli_enabled=c.get('is_nli_enabled'),
+                    nli_domain=c.get('nli_domain'),
                 )
                 for c in data['data']
             ]
@@ -509,6 +525,8 @@ class Client:
             json_data["sort"] = request.sort.to_dict()
         if request.vector_query is not None:
             json_data["vector_query"] = request.vector_query
+        if request.use_nli is not None:
+            json_data["use_nli"] = request.use_nli
 
         data = self._request("POST", "/api/data/v1/search", json_data=json_data)
         return SearchResponse(**data)
@@ -635,7 +653,8 @@ class Client:
 
     # Debug Operations
     def get_collection_distance(
-        self, collection_name: str, field: str, node_id: int, text: str
+        self, collection_name: str, field: str, node_id: int, text: str,
+        custom_matcher_text: Optional[str] = None,
     ) -> DebugDistanceResponse:
         """
         Get the distance of a node in a collection for debug purposes.
@@ -645,17 +664,22 @@ class Client:
             field: Field name
             node_id: Node ID
             text: Text to calculate distance from
+            custom_matcher_text: Optional custom matcher text for distance calculation
 
         Returns:
             DebugDistanceResponse with distance information
         """
         params = {"text": text}
-        data = self._request(
+        if custom_matcher_text:
+            params["custom_matcher_text"] = custom_matcher_text
+        raw = self._request(
             "GET",
             f"/api/collections/v1/debug/{collection_name}/{field}/distance/{node_id}",
             params=params,
         )
-        return DebugDistanceResponse(**data)
+        if 'data' in raw and isinstance(raw['data'], dict):
+            raw['data'] = DebugDistanceData(**raw['data'])
+        return DebugDistanceResponse(**raw)
 
     def get_collection_node_info(
         self, collection_name: str, field: str, node_id: int
@@ -763,6 +787,146 @@ class Client:
             f"/api/collections/v1/debug/{collection_name}/nodes/reference_node/{node_id}",
         )
         return DebugReferenceNodeResponse(**data)
+
+    def get_collection_embeddings(
+        self, collection_name: str, request: DebugGetEmbeddingsRequest
+    ) -> DebugGetEmbeddingsResponse:
+        """
+        Get embeddings for texts in a collection for debug purposes.
+
+        Args:
+            collection_name: Name of the collection
+            request: DebugGetEmbeddingsRequest with texts to embed
+
+        Returns:
+            DebugGetEmbeddingsResponse with embedding vectors
+        """
+        json_data = {"texts": request.texts}
+        data = self._request(
+            "POST",
+            f"/api/collections/v1/debug/{collection_name}/embedding",
+            json_data=json_data,
+        )
+        return DebugGetEmbeddingsResponse(**data)
+
+    def get_collection_data(
+        self, collection_name: str, offset: int, limit: int
+    ) -> GetCollectionDataResponse:
+        """
+        Get paginated data records from a collection.
+
+        Args:
+            collection_name: Name of the collection
+            offset: Number of records to skip
+            limit: Maximum number of records to return
+
+        Returns:
+            GetCollectionDataResponse with collection data records
+        """
+        raw = self._request(
+            "GET",
+            f"/api/collections/v1/{collection_name}/data",
+            params={"offset": offset, "limit": limit},
+        )
+        if 'data' in raw and isinstance(raw['data'], list):
+            raw['data'] = [
+                CollectionDataRecord(
+                    id=r['id'],
+                    data=r.get('data', {}),
+                    vectors=r.get('vectors'),
+                )
+                for r in raw['data']
+            ]
+        return GetCollectionDataResponse(**raw)
+
+    def enable_nli(self, collection: str, vertical: str, callback: Callable[[str], None]) -> None:
+        """
+        Enable Natural Language Inference for a collection via SSE stream.
+
+        Args:
+            collection: Collection name
+            vertical: NLI vertical (use empty string for custom vertical)
+            callback: Function to call for each SSE event line
+
+        Note:
+            This is a blocking call that streams events until connection closes.
+        """
+        params = f"vertical={vertical}"
+        url = urljoin(self.base_url, f"/api/collections/v1/{collection}/nli/enable?{params}")
+        response = self.session.get(url, stream=True, timeout=self.timeout)
+
+        if response.status_code >= 400:
+            raise requests.HTTPError(
+                f"API error: {response.text} (status: {response.status_code})",
+                response=response,
+            )
+
+        for line in response.iter_lines():
+            if line:
+                callback(line.decode('utf-8'))
+
+    def get_collection_schema(self, collection_name: str) -> GetCollectionSchemaResponse:
+        """
+        Get the schema for a collection.
+
+        Args:
+            collection_name: Name of the collection
+
+        Returns:
+            GetCollectionSchemaResponse with collection schema
+        """
+        raw = self._request("GET", f"/api/collections/v1/{collection_name}/schema")
+        if 'data' in raw and isinstance(raw['data'], dict):
+            d = raw['data']
+            attributes = None
+            if 'attributes' in d and d['attributes'] is not None:
+                attributes = [
+                    Attribute(
+                        name=a.get('name'),
+                        type=AttributeType(a['type']) if a.get('type') is not None else None,
+                        index_type=a.get('index_type'),
+                        is_metadata=a.get('is_metadata'),
+                    )
+                    for a in d['attributes']
+                ]
+            value_schema = None
+            if 'value_schema' in d and d['value_schema'] is not None:
+                value_schema = [
+                    CategorySchema(
+                        name=cs.get('name'),
+                        index_type=cs.get('index_type'),
+                        values=[
+                            CategoryValue(value=v.get('value'), count=v.get('count'))
+                            for v in cs['values']
+                        ] if cs.get('values') is not None else None,
+                        synonyms=cs.get('synonyms'),
+                    )
+                    for cs in d['value_schema']
+                ]
+            raw['data'] = CollectionSchema(
+                attributes=attributes,
+                value_schema=value_schema,
+            )
+        return GetCollectionSchemaResponse(**raw)
+
+    def list_nli_verticals(self) -> ListNLIVerticalsResponse:
+        """
+        List all available NLI verticals.
+
+        Returns:
+            ListNLIVerticalsResponse with available verticals
+        """
+        raw = self._request("GET", "/api/data/v1/nli/verticals")
+        if 'data' in raw and isinstance(raw['data'], list):
+            raw['data'] = [
+                VerticalInfo(
+                    name=v.get('name'),
+                    label=v.get('label'),
+                    is_native=v.get('is_native'),
+                )
+                for v in raw['data']
+            ]
+        return ListNLIVerticalsResponse(**raw)
 
     # Oplog Operations
     def get_oplog_entries(

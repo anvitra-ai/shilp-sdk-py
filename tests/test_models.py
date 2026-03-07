@@ -11,6 +11,25 @@ from shilp.models import (
     CompoundFilter,
     CompoundSort,
     AttrType,
+    IndexType,
+    AttributeType,
+    DebugDistanceData,
+    DebugDistanceResponse,
+    DebugGetEmbeddingsRequest,
+    DebugGetEmbeddingsResponse,
+    CollectionDataRecord,
+    GetCollectionDataResponse,
+    Attribute,
+    CategoryValue,
+    CategorySchema,
+    CollectionSchema,
+    GetCollectionSchemaResponse,
+    VerticalInfo,
+    ListNLIVerticalsResponse,
+    Collection,
+    ListCollectionsResponse,
+    SearchRequest,
+    StorageBackendType,
 )
 
 
@@ -175,6 +194,191 @@ class TestSortOrder:
         """Test that all sort orders are defined."""
         assert SortOrder.ASCENDING == 0
         assert SortOrder.DESCENDING == 1
+
+
+class TestIndexType:
+    """Test IndexType constants."""
+
+    def test_index_types_defined(self):
+        """Test that all index types are defined."""
+        assert IndexType.HNSW == "hnsw"
+        assert IndexType.INVERTED == "inverted"
+        assert IndexType.METADATA == "metadata"
+
+
+class TestAttributeType:
+    """Test AttributeType enum."""
+
+    def test_attribute_types_defined(self):
+        """Test that all attribute types are defined."""
+        assert AttributeType.NUMERICAL == 1
+        assert AttributeType.STRING == 2
+
+
+class TestDebugDistanceData:
+    """Test DebugDistanceData dataclass."""
+
+    def test_debug_distance_data_creation(self):
+        """Test creating a DebugDistanceData instance."""
+        d = DebugDistanceData(distance=0.5, vector=[0.1, 0.2, 0.3])
+        assert d.distance == 0.5
+        assert d.vector == [0.1, 0.2, 0.3]
+        assert d.custom_matcher_distance is None
+
+    def test_debug_distance_data_with_custom_matcher(self):
+        """Test DebugDistanceData with custom_matcher_distance."""
+        d = DebugDistanceData(distance=0.5, vector=[0.1], custom_matcher_distance=0.3)
+        assert d.custom_matcher_distance == 0.3
+
+    def test_debug_distance_response_with_data(self):
+        """Test DebugDistanceResponse with DebugDistanceData."""
+        data = DebugDistanceData(distance=0.7, vector=[0.1, 0.2])
+        resp = DebugDistanceResponse(success=True, message="OK", data=data)
+        assert isinstance(resp.data, DebugDistanceData)
+        assert resp.data.distance == 0.7
+
+
+class TestDebugEmbeddings:
+    """Test debug embeddings request/response models."""
+
+    def test_embeddings_request_creation(self):
+        """Test DebugGetEmbeddingsRequest creation."""
+        req = DebugGetEmbeddingsRequest(texts=["hello", "world"])
+        assert req.texts == ["hello", "world"]
+
+    def test_embeddings_response_creation(self):
+        """Test DebugGetEmbeddingsResponse creation."""
+        resp = DebugGetEmbeddingsResponse(
+            success=True, message="OK", data=[[0.1, 0.2], [0.3, 0.4]]
+        )
+        assert resp.success is True
+        assert len(resp.data) == 2
+        assert resp.data[0] == [0.1, 0.2]
+
+
+class TestCollectionDataModels:
+    """Test collection data models."""
+
+    def test_collection_data_record_creation(self):
+        """Test CollectionDataRecord creation."""
+        rec = CollectionDataRecord(id="abc", data={"field": "value"})
+        assert rec.id == "abc"
+        assert rec.data == {"field": "value"}
+        assert rec.vectors is None
+
+    def test_get_collection_data_response_creation(self):
+        """Test GetCollectionDataResponse creation."""
+        rec = CollectionDataRecord(id="1", data={})
+        resp = GetCollectionDataResponse(success=True, message="OK", data=[rec], total=1)
+        assert resp.total == 1
+        assert len(resp.data) == 1
+
+
+class TestCollectionSchemaModels:
+    """Test collection schema models."""
+
+    def test_attribute_creation(self):
+        """Test Attribute creation."""
+        attr = Attribute(name="color", type=AttributeType.STRING, index_type="inverted")
+        assert attr.name == "color"
+        assert attr.type == AttributeType.STRING
+        assert attr.index_type == "inverted"
+
+    def test_category_value_creation(self):
+        """Test CategoryValue creation."""
+        cv = CategoryValue(value="red", count=10)
+        assert cv.value == "red"
+        assert cv.count == 10
+
+    def test_category_schema_creation(self):
+        """Test CategorySchema creation."""
+        cs = CategorySchema(
+            name="color",
+            index_type="inverted",
+            values=[CategoryValue(value="red", count=5)],
+            synonyms=["hue"],
+        )
+        assert cs.name == "color"
+        assert len(cs.values) == 1
+        assert cs.synonyms == ["hue"]
+
+    def test_collection_schema_creation(self):
+        """Test CollectionSchema creation."""
+        schema = CollectionSchema(
+            attributes=[Attribute(name="color")],
+            value_schema=[CategorySchema(name="color")],
+        )
+        assert len(schema.attributes) == 1
+        assert len(schema.value_schema) == 1
+
+    def test_get_collection_schema_response(self):
+        """Test GetCollectionSchemaResponse creation."""
+        resp = GetCollectionSchemaResponse(success=True, message="OK", data=CollectionSchema())
+        assert resp.success is True
+        assert isinstance(resp.data, CollectionSchema)
+
+
+class TestNLIModels:
+    """Test NLI-related models."""
+
+    def test_vertical_info_creation(self):
+        """Test VerticalInfo creation."""
+        v = VerticalInfo(name="ecommerce", label="E-Commerce", is_native=True)
+        assert v.name == "ecommerce"
+        assert v.is_native is True
+
+    def test_list_nli_verticals_response(self):
+        """Test ListNLIVerticalsResponse creation."""
+        resp = ListNLIVerticalsResponse(
+            success=True,
+            data=[VerticalInfo(name="ecommerce")],
+            message="OK",
+        )
+        assert resp.success is True
+        assert len(resp.data) == 1
+
+
+class TestCollectionNLIFields:
+    """Test Collection and ListCollectionsResponse with NLI fields."""
+
+    def test_collection_with_nli_fields(self):
+        """Test Collection includes NLI fields."""
+        col = Collection(
+            name="test",
+            is_loaded=True,
+            fields=["f1"],
+            searchable_fields=["f1"],
+            field_config={"f1": "hnsw"},
+            is_nli_enabled=True,
+            nli_domain="ecommerce",
+        )
+        assert col.field_config == {"f1": "hnsw"}
+        assert col.is_nli_enabled is True
+        assert col.nli_domain == "ecommerce"
+
+    def test_list_collections_response_nli_supported(self):
+        """Test ListCollectionsResponse includes is_nli_supported."""
+        col = Collection(
+            name="test", is_loaded=True, fields=[], searchable_fields=[]
+        )
+        resp = ListCollectionsResponse(
+            success=True, message="OK", data=[col], is_nli_supported=True
+        )
+        assert resp.is_nli_supported is True
+
+
+class TestSearchRequestUseNLI:
+    """Test SearchRequest with use_nli field."""
+
+    def test_search_request_with_use_nli(self):
+        """Test SearchRequest includes use_nli field."""
+        req = SearchRequest(collection="test", query="hello", use_nli=True)
+        assert req.use_nli is True
+
+    def test_search_request_use_nli_defaults_none(self):
+        """Test SearchRequest use_nli defaults to None."""
+        req = SearchRequest(collection="test", query="hello")
+        assert req.use_nli is None
 
 
 if __name__ == "__main__":
