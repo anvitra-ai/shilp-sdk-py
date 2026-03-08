@@ -399,11 +399,81 @@ class SearchRequest:
 
 
 @dataclass
+class Token:
+    """Token in the query interpretation."""
+    text: Optional[str] = None
+    tag: Optional[str] = None
+    label: Optional[str] = None
+
+
+@dataclass
+class NumericalValue:
+    """Numerical value with unit and multiplier."""
+    unit: Optional[str] = None
+    base_value: Optional[float] = None
+    multiplier: Optional[float] = None
+    total_value: Optional[float] = None
+    original_text: Optional[str] = None
+
+
+class FilterOperator:
+    """Filter operator types."""
+    EQUALS = "EQ"
+    NOT_EQUALS = "NEQ"
+    GREATER_THAN = "GT"
+    LESS_THAN = "LT"
+    GREATER_THAN_OR_EQUAL = "GTE"
+    LESS_THAN_OR_EQUAL = "LTE"
+    IN = "IN"
+    NOT_IN = "NOT IN"
+
+
+@dataclass
+class Filter:
+    """Filter in the query interpretation."""
+    resolved_by: Optional[List[str]] = None
+    attribute: Optional[List[Token]] = None
+    operation: Optional[Token] = None
+    operator: Optional[str] = None
+    value: Optional[List[Token]] = None
+    is_numerical: bool = False
+    grounded: bool = False
+    numerical_value: Optional[NumericalValue] = None
+
+
+@dataclass
+class ValueFilter:
+    """Value filter in the query interpretation."""
+    resolved_by: Optional[List[str]] = None
+    attribute: Optional[List[Token]] = None
+    values: Optional[List[List[Token]]] = None
+    grounded: bool = False
+    operator: Optional[str] = None
+
+
+@dataclass
+class VectorQuery:
+    """Vector query in the query interpretation."""
+    resolved_by: Optional[List[str]] = None
+    vector_query: Optional[str] = None
+    vector_queries: Optional[Dict[str, str]] = None
+    vector_confidences: Optional[Dict[str, float]] = None
+
+
+@dataclass
+class Query:
+    """Query interpretation from NLI."""
+    vector_query: Optional[VectorQuery] = None
+    filters: Optional[List[Filter]] = None
+    value_filters: Optional[List[ValueFilter]] = None
+
+
+@dataclass
 class SearchResponse:
     """Response for searching data."""
     success: bool
     data: List[Dict[str, Any]]
-    
+    interpretation: Optional[Query] = None
     message: Optional[str] = None
 
 
