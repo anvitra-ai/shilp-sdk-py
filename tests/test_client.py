@@ -178,7 +178,7 @@ class TestClientRequestBuilding:
 
 
 class TestNewV013Methods:
-    """Test new v0.13.0 methods."""
+    """Test new v0.13.1 methods."""
 
     @patch('shilp.client.requests.Session')
     def test_get_collection_distance_with_custom_matcher_text(self, mock_session_class):
