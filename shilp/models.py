@@ -39,6 +39,19 @@ class StorageBackendType(IntEnum):
     S3 = 2
 
 
+class IndexType:
+    """Type of index for a collection field."""
+    HNSW = "hnsw"
+    INVERTED = "inverted"
+    METADATA = "metadata"
+
+
+class AttributeType(IntEnum):
+    """Type of a schema attribute."""
+    NUMERICAL = 1
+    STRING = 2
+
+
 class IngestSourceType:
     """Type of ingestion source."""
     FILE = "file"
@@ -81,6 +94,9 @@ class Collection:
     storage_type: StorageBackendType = StorageBackendType.FILE
     reference_storage_type: StorageBackendType = StorageBackendType.FILE
     is_pq_enabled: bool = False
+    field_config: Optional[Dict[str, str]] = None
+    is_nli_enabled: Optional[bool] = None
+    nli_domain: Optional[str] = None
 
 
 @dataclass
@@ -99,6 +115,7 @@ class ListCollectionsResponse:
     message: str
     data: List[Collection]
     metadata_info: Optional[List[MetadataSupportInfo]] = None
+    is_nli_supported: bool = False
 
 
 @dataclass
@@ -113,6 +130,79 @@ class AddCollectionRequest:
 
 
 @dataclass
+class CollectionDataRecord:
+    """A single record returned from get_collection_data."""
+    id: str
+    data: Dict[str, Any]
+    vectors: Optional[Dict[str, List[float]]] = None
+
+
+@dataclass
+class GetCollectionDataResponse:
+    """Response for paginated collection data."""
+    success: bool
+    message: str
+    data: List[CollectionDataRecord]
+    total: int = 0
+
+
+@dataclass
+class Attribute:
+    """An attribute in a collection schema."""
+    name: Optional[str] = None
+    type: Optional[AttributeType] = None
+    index_type: Optional[str] = None
+    is_metadata: Optional[bool] = None
+
+
+@dataclass
+class CategoryValue:
+    """A value in a category schema."""
+    value: Optional[str] = None
+    count: Optional[int] = None
+
+
+@dataclass
+class CategorySchema:
+    """Category schema for inverted-index fields."""
+    name: Optional[str] = None
+    index_type: Optional[str] = None
+    values: Optional[List[CategoryValue]] = None
+    synonyms: Optional[List[str]] = None
+
+
+@dataclass
+class CollectionSchema:
+    """Schema of a collection."""
+    attributes: Optional[List[Attribute]] = None
+    value_schema: Optional[List[CategorySchema]] = None
+
+
+@dataclass
+class GetCollectionSchemaResponse:
+    """Response for getting a collection schema."""
+    success: bool
+    message: Optional[str] = None
+    data: Optional[CollectionSchema] = None
+
+
+@dataclass
+class VerticalInfo:
+    """Information about an NLI vertical."""
+    name: Optional[str] = None
+    label: Optional[str] = None
+    is_native: Optional[bool] = None
+
+
+@dataclass
+class ListNLIVerticalsResponse:
+    """Response for listing NLI verticals."""
+    success: bool
+    data: Optional[List[VerticalInfo]] = None
+    message: Optional[str] = None
+
+
+@dataclass
 class RecordData:
     """Record data in the response."""
     id: str
@@ -122,6 +212,10 @@ class RecordData:
     metadata_fields: Optional[Dict[str, int]] = None
 
 
+@dataclass
+class VectorCreateConfig:
+    """Configuration for creating vectors."""
+    ef_construction: Optional[int] = None
 @dataclass
 class InsertRecordRequest:
     """Request to insert a record."""
@@ -136,6 +230,8 @@ class InsertRecordRequest:
     # Map of field name to vector data - if present, will be used instead of embedding generation
     vectors: Optional[Dict[str, List[float]]] = None
     model: Optional[str] = None
+    array_fields: Optional[List[str]] = None  # Fields that contain arrays of values
+    vector_config: Optional[Dict[str, VectorCreateConfig]] = None
 
 
 @dataclass
@@ -205,6 +301,7 @@ class FilterExpression:
     op: FilterOp
     value: Optional[Any] = None
     values: Optional[List[Any]] = None
+    filters: Optional['CompoundFilter'] = None  # For nested filters
 
     def validate(self) -> None:
         """Validate the filter expression."""
@@ -222,21 +319,30 @@ class FilterExpression:
 @dataclass
 class CompoundFilter:
     """Combination of filter expressions."""
-    and_filters: Optional[List[FilterExpression]] = field(default_factory=list)
+    and_: Optional[List[FilterExpression]] = field(default_factory=list)
+    or_: Optional[List[FilterExpression]] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
+        def filter_to_dict(f: FilterExpression) -> Dict[str, Any]:
+            """Convert a FilterExpression to dict."""
+            result = {
+                "attribute": f.attribute,
+                "op": f.op,
+            }
+            if f.value is not None:
+                result["value"] = f.value
+            if f.values is not None:
+                result["values"] = f.values
+            if f.filters is not None:
+                result["filters"] = f.filters.to_dict()
+            return result
+
         result = {}
-        if self.and_filters:
-            result["and"] = [
-                {
-                    "attribute": f.attribute,
-                    "op": f.op,
-                    "value": f.value,
-                    "values": f.values
-                }
-                for f in self.and_filters
-            ]
+        if self.and_:
+            result["and"] = [filter_to_dict(f) for f in self.and_]
+        if self.or_:
+            result["or"] = [filter_to_dict(f) for f in self.or_]
         return result
 
 
@@ -269,6 +375,10 @@ class CompoundSort:
             ]
         return result
 
+@dataclass
+class VectorSearchConfig:
+    """Configuration for vector search."""
+    ef_search: int = 200
 
 @dataclass
 class SearchRequest:
@@ -282,6 +392,10 @@ class SearchRequest:
     filters: Optional[CompoundFilter] = None
     sort: Optional[CompoundSort] = None
     vector_query: Optional[List[float]] = None
+    use_nli: Optional[bool] = None
+    field_config: Optional[Dict[str, VectorSearchConfig]] = None
+    queries: Optional[Dict[str, str]] = None  # For multi-query search, map of field to query string
+    vector_queries: Optional[Dict[str, List[float]]] = None  # For multi-query search, map of field to vector
 
 
 @dataclass
@@ -324,11 +438,20 @@ class HealthResponse:
 
 
 @dataclass
+class DebugDistanceData:
+    """Data returned from debug distance endpoint."""
+    distance: float
+    vector: List[float]
+    custom_matcher_distance: Optional[float] = None
+    custom_matcher_vector: Optional[List[float]] = None
+
+
+@dataclass
 class DebugDistanceResponse:
     """Response for debug distance endpoint."""
     success: bool
     message: str
-    data: Dict[str, Any]
+    data: Optional[DebugDistanceData] = None
 
 
 @dataclass
@@ -405,6 +528,20 @@ class DebugReferenceNodeResponse:
     success: bool
     message: str
     data: Optional[DebugReferenceNode] = None
+
+
+@dataclass
+class DebugGetEmbeddingsRequest:
+    """Request to get embeddings for debug purposes."""
+    texts: List[str]
+
+
+@dataclass
+class DebugGetEmbeddingsResponse:
+    """Response for getting debug embeddings."""
+    success: bool
+    message: str
+    data: Optional[List[List[float]]] = None
 
 
 @dataclass

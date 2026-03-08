@@ -133,7 +133,7 @@ def main():
     print_section("Advanced Search with Filtering")
     
     # Search with filters
-    filters = CompoundFilter(and_filters=[
+    filters = CompoundFilter(and_=[
         FilterExpression(
             attribute="rating",
             op=FilterOp.GREATER_THAN_OR_EQUAL,

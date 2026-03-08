@@ -44,57 +44,57 @@ client.drop_collection("my-collection")
 
 ## Collection Management
 
-| Method | Description |
-|--------|-------------|
-| `list_collections()` | List all collections |
-| `add_collection(request)` | Create a new collection |
-| `drop_collection(name)` | Delete a collection |
-| `rename_collection(old, new)` | Rename a collection |
-| `load_collection(name)` | Load collection into memory |
-| `unload_collection(name)` | Unload collection from memory |
-| `flush_collection(name)` | Flush collection to disk |
-| `reindex_collection(name)` | Re-index a collection |
-| `export_collection(name)` | Export collection to file stream |
-| `import_collection(path)` | Import collection from file |
+| Method                        | Description                      |
+| ----------------------------- | -------------------------------- |
+| `list_collections()`          | List all collections             |
+| `add_collection(request)`     | Create a new collection          |
+| `drop_collection(name)`       | Delete a collection              |
+| `rename_collection(old, new)` | Rename a collection              |
+| `load_collection(name)`       | Load collection into memory      |
+| `unload_collection(name)`     | Unload collection from memory    |
+| `flush_collection(name)`      | Flush collection to disk         |
+| `reindex_collection(name)`    | Re-index a collection            |
+| `export_collection(name)`     | Export collection to file stream |
+| `import_collection(path)`     | Import collection from file      |
 
 ## Data Operations
 
-| Method | Description |
-|--------|-------------|
-| `insert_record(request)` | Insert a single record |
-| `delete_record(collection, id)` | Delete a record by ID |
-| `ingest_data(request)` | Batch ingest from file |
-| `search_data(request)` | Search for records |
-| `expiry_cleanup(collection)` | Remove expired records |
+| Method                          | Description            |
+| ------------------------------- | ---------------------- |
+| `insert_record(request)`        | Insert a single record |
+| `delete_record(collection, id)` | Delete a record by ID  |
+| `ingest_data(request)`          | Batch ingest from file |
+| `search_data(request)`          | Search for records     |
+| `expiry_cleanup(collection)`    | Remove expired records |
 
 ## Storage Operations
 
-| Method | Description |
-|--------|-------------|
-| `list_storage(path)` | List files in storage |
-| `read_document(path, rows, skip)` | Read CSV document |
-| `list_embedding_models()` | List available embedding models |
-| `stream_ingest_stats(collection, callback)` | Stream ingestion stats via SSE |
+| Method                                      | Description                     |
+| ------------------------------------------- | ------------------------------- |
+| `list_storage(path)`                        | List files in storage           |
+| `read_document(path, rows, skip)`           | Read CSV document               |
+| `list_embedding_models()`                   | List available embedding models |
+| `stream_ingest_stats(collection, callback)` | Stream ingestion stats via SSE  |
 
 ## Debug Operations
 
-| Method | Description |
-|--------|-------------|
-| `get_collection_levels(collection)` | Get graph levels |
-| `get_collection_nodes_at_level(collection, level)` | Get nodes at level |
-| `get_collection_node_info(collection, field, node_id)` | Get node details |
-| `get_collection_node_neighbors_at_level(...)` | Get node neighbors |
-| `get_collection_distance(collection, field, node_id, text)` | Calculate distance |
-| `get_collection_node_by_reference_node_id(...)` | Get node by reference ID |
+| Method                                                      | Description              |
+| ----------------------------------------------------------- | ------------------------ |
+| `get_collection_levels(collection)`                         | Get graph levels         |
+| `get_collection_nodes_at_level(collection, level)`          | Get nodes at level       |
+| `get_collection_node_info(collection, field, node_id)`      | Get node details         |
+| `get_collection_node_neighbors_at_level(...)`               | Get node neighbors       |
+| `get_collection_distance(collection, field, node_id, text)` | Calculate distance       |
+| `get_collection_node_by_reference_node_id(...)`             | Get node by reference ID |
 
 ## Oplog Operations
 
-| Method | Description |
-|--------|-------------|
-| `register_replica(replica_id)` | Register a replica |
-| `unregister_replica(replica_id)` | Unregister a replica |
-| `get_oplog_entries(collection, after_lsn, limit)` | Get oplog entries |
-| `get_oplog_status(collection)` | Get oplog status |
+| Method                                            | Description                    |
+| ------------------------------------------------- | ------------------------------ |
+| `register_replica(replica_id)`                    | Register a replica             |
+| `unregister_replica(replica_id)`                  | Unregister a replica           |
+| `get_oplog_entries(collection, after_lsn, limit)` | Get oplog entries              |
+| `get_oplog_status(collection)`                    | Get oplog status               |
 | `update_replica_lsn(collection, replica_id, lsn)` | Update replica LSN (heartbeat) |
 
 ## Data Models
@@ -108,7 +108,7 @@ from shilp import AttrType, FilterOp, SortOrder
 AttrType.INT64, AttrType.FLOAT64, AttrType.STRING, AttrType.BOOL
 
 # Filter operations
-FilterOp.EQUALS, FilterOp.NOT_EQUALS, FilterOp.GREATER_THAN, 
+FilterOp.EQUALS, FilterOp.NOT_EQUALS, FilterOp.GREATER_THAN,
 FilterOp.LESS_THAN, FilterOp.IN, FilterOp.NOT_IN
 
 # Sort orders
@@ -120,7 +120,7 @@ SortOrder.ASCENDING, SortOrder.DESCENDING
 ```python
 from shilp import FilterExpression, CompoundFilter, FilterOp
 
-filters = CompoundFilter(and_filters=[
+filters = CompoundFilter(and_=[
     FilterExpression(attribute="age", op=FilterOp.GREATER_THAN, value=25),
     FilterExpression(attribute="status", op=FilterOp.EQUALS, value="active"),
 ])
@@ -200,6 +200,7 @@ client = Client("http://localhost:3000", session=session)
 ## Examples
 
 See the `examples/` directory for complete working examples:
+
 - `basic_usage.py` - Basic operations
 - `advanced_usage.py` - Advanced features including filtering, sorting, metadata, oplog, etc.
 
