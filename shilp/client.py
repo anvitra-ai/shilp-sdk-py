@@ -29,7 +29,9 @@ from shilp.models import (
     DebugNodeInfoResponse,
     DebugLevelsResponse,
     DebugNodesAtLevelResponse,
+    DebugReferenceNode,
     DebugReferenceNodeResponse,
+    DebugVectorNode,
     DebugGetEmbeddingsRequest,
     DebugGetEmbeddingsResponse,
     GetCollectionDataResponse,
@@ -433,8 +435,19 @@ class Client:
             json_data["fields"] = request.fields
         if request.keyword_fields is not None:
             json_data["keyword_fields"] = request.keyword_fields
+        if request.vectors is not None:
+            json_data["vectors"] = request.vectors
         if request.model is not None:
             json_data["model"] = request.model
+        if request.array_fields is not None:
+            json_data["array_fields"] = request.array_fields
+        if request.vector_config is not None:
+            json_data["vector_config"] = {
+                field: {
+                    "ef_construction": config.ef_construction,
+                }
+                for field, config in request.vector_config.items()
+            }
 
         data = self._request("POST", "/api/collections/v1/record", json_data=json_data)
         return InsertRecordResponse(**data)
@@ -527,6 +540,17 @@ class Client:
             json_data["vector_query"] = request.vector_query
         if request.use_nli is not None:
             json_data["use_nli"] = request.use_nli
+        if request.field_config is not None:
+            json_data["field_config"] = {
+                field: {
+                    "ef_search": config.ef_search,
+                }
+                for field, config in request.field_config.items()
+            }
+        if request.queries is not None:
+            json_data["queries"] = request.queries
+        if request.vector_queries is not None:
+            json_data["vector_queries"] = request.vector_queries
 
         data = self._request("POST", "/api/data/v1/search", json_data=json_data)
         return SearchResponse(**data)
@@ -770,7 +794,7 @@ class Client:
         return DebugNodesAtLevelResponse(**data)
 
     def get_collection_node_by_reference_node_id(
-        self, collection_name: str, node_id: int
+        self, collection_name: str, node_id: str
     ) -> DebugReferenceNodeResponse:
         """
         Get node by reference node ID of a collection for debug purposes.
@@ -786,6 +810,19 @@ class Client:
             "GET",
             f"/api/collections/v1/debug/{collection_name}/nodes/reference_node/{node_id}",
         )
+        # parse nodes in data if present
+        if 'data' in data and isinstance(data['data'], dict) and 'nodes' in data['data'] and isinstance(data['data']['nodes'], list):
+            data['data'] = DebugReferenceNode(
+                id=data['data'].get('id'),
+                metadata=data['data'].get('metadata'),
+                nodes=[
+                DebugVectorNode(
+                    id=n.get('id'),
+                    field=n.get('field'),
+                    vector=n.get('vector'),
+                )
+                for n in data['data']['nodes']
+            ])
         return DebugReferenceNodeResponse(**data)
 
     def get_collection_embeddings(

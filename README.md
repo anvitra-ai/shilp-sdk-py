@@ -163,7 +163,7 @@ The SDK supports advanced filtering and sorting:
 from shilp import FilterExpression, CompoundFilter, SortExpression, CompoundSort, FilterOp, SortOrder, AttrType
 
 # Create filters
-filters = CompoundFilter(and_filters=[
+filters = CompoundFilter(and_=[
     FilterExpression(attribute="age", op=FilterOp.GREATER_THAN, value=25),
     FilterExpression(attribute="status", op=FilterOp.EQUALS, value="active"),
 ])

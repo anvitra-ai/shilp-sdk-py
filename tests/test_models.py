@@ -119,7 +119,7 @@ class TestCompoundFilter:
 
     def test_to_dict_with_filters(self):
         """Test conversion to dictionary with filters."""
-        compound = CompoundFilter(and_filters=[
+        compound = CompoundFilter(and_=[
             FilterExpression(attribute="age", op=FilterOp.GREATER_THAN, value=25),
             FilterExpression(attribute="status", op=FilterOp.EQUALS, value="active"),
         ])

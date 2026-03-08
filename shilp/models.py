@@ -213,6 +213,10 @@ class RecordData:
 
 
 @dataclass
+class VectorCreateConfig:
+    """Configuration for creating vectors."""
+    ef_construction: Optional[int] = None
+@dataclass
 class InsertRecordRequest:
     """Request to insert a record."""
     collection: str
@@ -226,6 +230,8 @@ class InsertRecordRequest:
     # Map of field name to vector data - if present, will be used instead of embedding generation
     vectors: Optional[Dict[str, List[float]]] = None
     model: Optional[str] = None
+    array_fields: Optional[List[str]] = None  # Fields that contain arrays of values
+    vector_config: Optional[Dict[str, VectorCreateConfig]] = None
 
 
 @dataclass
@@ -295,6 +301,7 @@ class FilterExpression:
     op: FilterOp
     value: Optional[Any] = None
     values: Optional[List[Any]] = None
+    filters: Optional['CompoundFilter'] = None  # For nested filters
 
     def validate(self) -> None:
         """Validate the filter expression."""
@@ -312,21 +319,30 @@ class FilterExpression:
 @dataclass
 class CompoundFilter:
     """Combination of filter expressions."""
-    and_filters: Optional[List[FilterExpression]] = field(default_factory=list)
+    and_: Optional[List[FilterExpression]] = field(default_factory=list)
+    or_: Optional[List[FilterExpression]] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
+        def filter_to_dict(f: FilterExpression) -> Dict[str, Any]:
+            """Convert a FilterExpression to dict."""
+            result = {
+                "attribute": f.attribute,
+                "op": f.op,
+            }
+            if f.value is not None:
+                result["value"] = f.value
+            if f.values is not None:
+                result["values"] = f.values
+            if f.filters is not None:
+                result["filters"] = f.filters.to_dict()
+            return result
+
         result = {}
-        if self.and_filters:
-            result["and"] = [
-                {
-                    "attribute": f.attribute,
-                    "op": f.op,
-                    "value": f.value,
-                    "values": f.values
-                }
-                for f in self.and_filters
-            ]
+        if self.and_:
+            result["and"] = [filter_to_dict(f) for f in self.and_]
+        if self.or_:
+            result["or"] = [filter_to_dict(f) for f in self.or_]
         return result
 
 
@@ -359,6 +375,10 @@ class CompoundSort:
             ]
         return result
 
+@dataclass
+class VectorSearchConfig:
+    """Configuration for vector search."""
+    ef_search: int = 200
 
 @dataclass
 class SearchRequest:
@@ -373,6 +393,9 @@ class SearchRequest:
     sort: Optional[CompoundSort] = None
     vector_query: Optional[List[float]] = None
     use_nli: Optional[bool] = None
+    field_config: Optional[Dict[str, VectorSearchConfig]] = None
+    queries: Optional[Dict[str, str]] = None  # For multi-query search, map of field to query string
+    vector_queries: Optional[Dict[str, List[float]]] = None  # For multi-query search, map of field to vector
 
 
 @dataclass
@@ -420,6 +443,7 @@ class DebugDistanceData:
     distance: float
     vector: List[float]
     custom_matcher_distance: Optional[float] = None
+    custom_matcher_vector: Optional[List[float]] = None
 
 
 @dataclass
