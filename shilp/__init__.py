@@ -67,6 +67,8 @@ from shilp.models import (
     Status,
     ProxyStats,
     DiscoveryStats,
+    VectorCreateConfig,
+    VectorSearchConfig,
 )
 
 __version__ = "0.13.2"
