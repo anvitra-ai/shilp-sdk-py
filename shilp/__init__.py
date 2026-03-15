@@ -137,4 +137,6 @@ __all__ = [
     "Status",
     "ProxyStats",
     "DiscoveryStats",
+    "VectorSearchConfig",
+    "VectorCreateConfig",
 ]
