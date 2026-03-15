@@ -69,7 +69,7 @@ from shilp.models import (
     DiscoveryStats,
 )
 
-__version__ = "0.13.1"
+__version__ = "0.13.2"
 __all__ = [
     "Client",
     "DiscoveryClient",
