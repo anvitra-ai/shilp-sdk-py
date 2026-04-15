@@ -30,6 +30,11 @@ from shilp.models import (
     ListCollectionsResponse,
     SearchRequest,
     StorageBackendType,
+    IngestSourceType,
+    FuzzyAlgo,
+    SearchResponse,
+    EnableMetadataStoreResponse,
+    SettingsProviderType,
 )
 
 
@@ -38,49 +43,33 @@ class TestFilterExpression:
 
     def test_valid_equals_filter(self):
         """Test valid equals filter expression."""
-        expr = FilterExpression(
-            attribute="status",
-            op=FilterOp.EQUALS,
-            value="active"
-        )
+        expr = FilterExpression(attribute="status", op=FilterOp.EQUALS, value="active")
         expr.validate()  # Should not raise
 
     def test_valid_in_filter(self):
         """Test valid IN filter expression."""
         expr = FilterExpression(
-            attribute="category",
-            op=FilterOp.IN,
-            values=["tech", "science"]
+            attribute="category", op=FilterOp.IN, values=["tech", "science"]
         )
         expr.validate()  # Should not raise
 
     def test_empty_attribute_fails(self):
         """Test that empty attribute name fails validation."""
-        expr = FilterExpression(
-            attribute="",
-            op=FilterOp.EQUALS,
-            value="test"
-        )
+        expr = FilterExpression(attribute="", op=FilterOp.EQUALS, value="test")
         with pytest.raises(ValueError, match="attribute name cannot be empty"):
             expr.validate()
 
     def test_in_without_values_fails(self):
         """Test that IN operation without values fails validation."""
-        expr = FilterExpression(
-            attribute="category",
-            op=FilterOp.IN,
-            values=[]
-        )
-        with pytest.raises(ValueError, match="IN/NOT IN operations require at least one value"):
+        expr = FilterExpression(attribute="category", op=FilterOp.IN, values=[])
+        with pytest.raises(
+            ValueError, match="IN/NOT IN operations require at least one value"
+        ):
             expr.validate()
 
     def test_equals_without_value_fails(self):
         """Test that equals operation without value fails validation."""
-        expr = FilterExpression(
-            attribute="status",
-            op=FilterOp.EQUALS,
-            value=None
-        )
+        expr = FilterExpression(attribute="status", op=FilterOp.EQUALS, value=None)
         with pytest.raises(ValueError, match="value cannot be None"):
             expr.validate()
 
@@ -90,26 +79,17 @@ class TestSortExpression:
 
     def test_valid_ascending_sort(self):
         """Test valid ascending sort expression."""
-        expr = SortExpression(
-            attribute="created_at",
-            order=SortOrder.ASCENDING
-        )
+        expr = SortExpression(attribute="created_at", order=SortOrder.ASCENDING)
         expr.validate()  # Should not raise
 
     def test_valid_descending_sort(self):
         """Test valid descending sort expression."""
-        expr = SortExpression(
-            attribute="updated_at",
-            order=SortOrder.DESCENDING
-        )
+        expr = SortExpression(attribute="updated_at", order=SortOrder.DESCENDING)
         expr.validate()  # Should not raise
 
     def test_empty_attribute_fails(self):
         """Test that empty attribute name fails validation."""
-        expr = SortExpression(
-            attribute="",
-            order=SortOrder.ASCENDING
-        )
+        expr = SortExpression(attribute="", order=SortOrder.ASCENDING)
         with pytest.raises(ValueError, match="sort attribute cannot be empty"):
             expr.validate()
 
@@ -119,11 +99,15 @@ class TestCompoundFilter:
 
     def test_to_dict_with_filters(self):
         """Test conversion to dictionary with filters."""
-        compound = CompoundFilter(and_=[
-            FilterExpression(attribute="age", op=FilterOp.GREATER_THAN, value=25),
-            FilterExpression(attribute="status", op=FilterOp.EQUALS, value="active"),
-        ])
-        
+        compound = CompoundFilter(
+            and_=[
+                FilterExpression(attribute="age", op=FilterOp.GREATER_THAN, value=25),
+                FilterExpression(
+                    attribute="status", op=FilterOp.EQUALS, value="active"
+                ),
+            ]
+        )
+
         result = compound.to_dict()
         assert "and" in result
         assert len(result["and"]) == 2
@@ -143,11 +127,13 @@ class TestCompoundSort:
 
     def test_to_dict_with_sorts(self):
         """Test conversion to dictionary with sorts."""
-        compound = CompoundSort(sorts=[
-            SortExpression(attribute="created_at", order=SortOrder.DESCENDING),
-            SortExpression(attribute="name", order=SortOrder.ASCENDING),
-        ])
-        
+        compound = CompoundSort(
+            sorts=[
+                SortExpression(attribute="created_at", order=SortOrder.DESCENDING),
+                SortExpression(attribute="name", order=SortOrder.ASCENDING),
+            ]
+        )
+
         result = compound.to_dict()
         assert "sorts" in result
         assert len(result["sorts"]) == 2
@@ -269,7 +255,9 @@ class TestCollectionDataModels:
     def test_get_collection_data_response_creation(self):
         """Test GetCollectionDataResponse creation."""
         rec = CollectionDataRecord(id="1", data={})
-        resp = GetCollectionDataResponse(success=True, message="OK", data=[rec], total=1)
+        resp = GetCollectionDataResponse(
+            success=True, message="OK", data=[rec], total=1
+        )
         assert resp.total == 1
         assert len(resp.data) == 1
 
@@ -313,7 +301,9 @@ class TestCollectionSchemaModels:
 
     def test_get_collection_schema_response(self):
         """Test GetCollectionSchemaResponse creation."""
-        resp = GetCollectionSchemaResponse(success=True, message="OK", data=CollectionSchema())
+        resp = GetCollectionSchemaResponse(
+            success=True, message="OK", data=CollectionSchema()
+        )
         assert resp.success is True
         assert isinstance(resp.data, CollectionSchema)
 
@@ -358,9 +348,7 @@ class TestCollectionNLIFields:
 
     def test_list_collections_response_nli_supported(self):
         """Test ListCollectionsResponse includes is_nli_supported."""
-        col = Collection(
-            name="test", is_loaded=True, fields=[], searchable_fields=[]
-        )
+        col = Collection(name="test", is_loaded=True, fields=[], searchable_fields=[])
         resp = ListCollectionsResponse(
             success=True, message="OK", data=[col], is_nli_supported=True
         )
@@ -379,6 +367,36 @@ class TestSearchRequestUseNLI:
         """Test SearchRequest use_nli defaults to None."""
         req = SearchRequest(collection="test", query="hello")
         assert req.use_nli is None
+
+
+class TestV014Models:
+    """Test v0.14.0 model additions."""
+
+    def test_ingest_source_type_anvitra(self):
+        assert IngestSourceType.ANVITRA == "anvitra"
+
+    def test_fuzzy_algo_constants(self):
+        assert FuzzyAlgo.LEVENSHTEIN == "levenshtein"
+        assert FuzzyAlgo.JARO_WINKLER == "jaro_winkler"
+
+    def test_search_response_timing(self):
+        resp = SearchResponse(
+            success=True,
+            message="OK",
+            data=[],
+            timing={"total_ms": 12},
+        )
+        assert resp.timing == {"total_ms": 12}
+
+    def test_enable_metadata_store_response(self):
+        resp = EnableMetadataStoreResponse(
+            success=True, message="ok", records_indexed=10
+        )
+        assert resp.records_indexed == 10
+
+    def test_settings_provider_type_constants(self):
+        assert SettingsProviderType.AUTH == "auth"
+        assert SettingsProviderType.DATA_SOURCE == "data-source"
 
 
 if __name__ == "__main__":
