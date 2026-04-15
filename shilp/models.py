@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 
 class AttrType(IntEnum):
     """Type of a metadata attribute."""
+
     INT64 = 0
     FLOAT64 = 1
     STRING = 2
@@ -16,6 +17,7 @@ class AttrType(IntEnum):
 
 class FilterOp(IntEnum):
     """Filter operation types."""
+
     EQUALS = 0
     NOT_EQUALS = 1
     GREATER_THAN = 2
@@ -28,12 +30,14 @@ class FilterOp(IntEnum):
 
 class SortOrder(IntEnum):
     """Sort direction."""
+
     ASCENDING = 0
     DESCENDING = 1
 
 
 class StorageBackendType(IntEnum):
     """Type of storage backend for persistence."""
+
     DOES_NOT_EXIST = -1
     FILE = 1
     S3 = 2
@@ -41,6 +45,7 @@ class StorageBackendType(IntEnum):
 
 class IndexType:
     """Type of index for a collection field."""
+
     HNSW = "hnsw"
     INVERTED = "inverted"
     METADATA = "metadata"
@@ -48,18 +53,22 @@ class IndexType:
 
 class AttributeType(IntEnum):
     """Type of a schema attribute."""
+
     NUMERICAL = 1
     STRING = 2
 
 
 class IngestSourceType:
     """Type of ingestion source."""
+
     FILE = "file"
     MONGODB = "mongodb"
+    ANVITRA = "anvitra"
 
 
 class OpType:
     """Operation type in the oplog."""
+
     INSERT = "insert"
     UPDATE = "update"
     DELETE = "delete"
@@ -70,6 +79,7 @@ class OpType:
 @dataclass
 class GenericResponse:
     """Standard response structure."""
+
     success: bool
     message: str
 
@@ -77,6 +87,7 @@ class GenericResponse:
 @dataclass
 class MetadataColumnSchema:
     """Metadata column schema."""
+
     name: str
     type: AttrType
 
@@ -84,6 +95,7 @@ class MetadataColumnSchema:
 @dataclass
 class Collection:
     """Represents a collection in the database."""
+
     name: str
     is_loaded: bool
     fields: List[str]
@@ -97,11 +109,29 @@ class Collection:
     field_config: Optional[Dict[str, str]] = None
     is_nli_enabled: Optional[bool] = None
     nli_domain: Optional[str] = None
+    total_no_of_documents: int = 0
+
+
+@dataclass
+class EnableMetadataStoreRequest:
+    """Request to enable metadata store for a collection."""
+
+    fields: Optional[List[MetadataColumnSchema]] = None
+
+
+@dataclass
+class EnableMetadataStoreResponse:
+    """Response for metadata store enablement."""
+
+    success: bool
+    message: str
+    records_indexed: Optional[int] = None
 
 
 @dataclass
 class MetadataSupportInfo:
     """Metadata support information."""
+
     support_metadata: bool
     name: str
     type: StorageBackendType
@@ -111,6 +141,7 @@ class MetadataSupportInfo:
 @dataclass
 class ListCollectionsResponse:
     """Response for listing collections."""
+
     success: bool
     message: str
     data: List[Collection]
@@ -121,6 +152,7 @@ class ListCollectionsResponse:
 @dataclass
 class AddCollectionRequest:
     """Request to add a new collection."""
+
     name: str
     no_reference_storage: bool = False
     has_metadata_storage: bool = False
@@ -132,6 +164,7 @@ class AddCollectionRequest:
 @dataclass
 class CollectionDataRecord:
     """A single record returned from get_collection_data."""
+
     id: str
     data: Dict[str, Any]
     vectors: Optional[Dict[str, List[float]]] = None
@@ -140,6 +173,7 @@ class CollectionDataRecord:
 @dataclass
 class GetCollectionDataResponse:
     """Response for paginated collection data."""
+
     success: bool
     message: str
     data: List[CollectionDataRecord]
@@ -149,6 +183,7 @@ class GetCollectionDataResponse:
 @dataclass
 class Attribute:
     """An attribute in a collection schema."""
+
     name: Optional[str] = None
     type: Optional[AttributeType] = None
     index_type: Optional[str] = None
@@ -158,6 +193,7 @@ class Attribute:
 @dataclass
 class CategoryValue:
     """A value in a category schema."""
+
     value: Optional[str] = None
     count: Optional[int] = None
 
@@ -165,6 +201,7 @@ class CategoryValue:
 @dataclass
 class CategorySchema:
     """Category schema for inverted-index fields."""
+
     name: Optional[str] = None
     index_type: Optional[str] = None
     values: Optional[List[CategoryValue]] = None
@@ -174,6 +211,7 @@ class CategorySchema:
 @dataclass
 class CollectionSchema:
     """Schema of a collection."""
+
     attributes: Optional[List[Attribute]] = None
     value_schema: Optional[List[CategorySchema]] = None
 
@@ -181,6 +219,7 @@ class CollectionSchema:
 @dataclass
 class GetCollectionSchemaResponse:
     """Response for getting a collection schema."""
+
     success: bool
     message: Optional[str] = None
     data: Optional[CollectionSchema] = None
@@ -189,6 +228,7 @@ class GetCollectionSchemaResponse:
 @dataclass
 class VerticalInfo:
     """Information about an NLI vertical."""
+
     name: Optional[str] = None
     label: Optional[str] = None
     is_native: Optional[bool] = None
@@ -197,6 +237,7 @@ class VerticalInfo:
 @dataclass
 class ListNLIVerticalsResponse:
     """Response for listing NLI verticals."""
+
     success: bool
     data: Optional[List[VerticalInfo]] = None
     message: Optional[str] = None
@@ -205,6 +246,7 @@ class ListNLIVerticalsResponse:
 @dataclass
 class RecordData:
     """Record data in the response."""
+
     id: str
     expiry: int
     fields: Dict[str, Any]
@@ -215,10 +257,14 @@ class RecordData:
 @dataclass
 class VectorCreateConfig:
     """Configuration for creating vectors."""
+
     ef_construction: Optional[int] = None
+
+
 @dataclass
 class InsertRecordRequest:
     """Request to insert a record."""
+
     collection: str
     record: Dict[str, Any]
     expiry: Optional[int] = None
@@ -237,6 +283,7 @@ class InsertRecordRequest:
 @dataclass
 class InsertRecordResponse:
     """Response for inserting a record."""
+
     success: bool
     message: str
     record: Optional[RecordData] = None
@@ -246,17 +293,18 @@ class InsertRecordResponse:
 @dataclass
 class IngestRequest:
     """Request to ingest data."""
+
     # Source configuration - use either file_path OR MongoDB settings
     # file_path has the path to the file to be ingested or 'database/collection' for MongoDB
     file_path: Optional[str] = None
     source_type: Optional[str] = None  # "file" or "mongodb"
-    
+
     # MongoDB source configuration
     database_name: Optional[str] = None
     mongo_collection: Optional[str] = None
     query: Optional[Dict[str, Any]] = None
     mongo_fetch_batch_size: Optional[int] = None
-    
+
     # Common configuration
     collection_name: str = ""
     fields: Optional[List[str]] = None
@@ -272,6 +320,7 @@ class IngestRequest:
 @dataclass
 class IngestResponse:
     """Response for data ingestion."""
+
     success: bool
     message: str
     details: Optional[List[str]] = None
@@ -280,6 +329,7 @@ class IngestResponse:
 @dataclass
 class FileReaderOptions:
     """Options for reading files."""
+
     source: Optional[str] = None  # IngestSourceType
     mongo_filter: Optional[Dict[str, Any]] = None
     skip: int = 0
@@ -289,6 +339,7 @@ class FileReaderOptions:
 @dataclass
 class ListIngestionSourcesResponse:
     """Response for listing ingestion sources."""
+
     message: str
     success: bool
     data: Optional[List[str]] = None
@@ -297,17 +348,18 @@ class ListIngestionSourcesResponse:
 @dataclass
 class FilterExpression:
     """Single filter condition."""
+
     attribute: str
     op: FilterOp
     value: Optional[Any] = None
     values: Optional[List[Any]] = None
-    filters: Optional['CompoundFilter'] = None  # For nested filters
+    filters: Optional["CompoundFilter"] = None  # For nested filters
 
     def validate(self) -> None:
         """Validate the filter expression."""
         if not self.attribute:
             raise ValueError("attribute name cannot be empty")
-        
+
         if self.op in (FilterOp.IN, FilterOp.NOT_IN):
             if not self.values or len(self.values) == 0:
                 raise ValueError("IN/NOT IN operations require at least one value")
@@ -319,11 +371,13 @@ class FilterExpression:
 @dataclass
 class CompoundFilter:
     """Combination of filter expressions."""
+
     and_: Optional[List[FilterExpression]] = field(default_factory=list)
     or_: Optional[List[FilterExpression]] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
+
         def filter_to_dict(f: FilterExpression) -> Dict[str, Any]:
             """Convert a FilterExpression to dict."""
             result = {
@@ -349,6 +403,7 @@ class CompoundFilter:
 @dataclass
 class SortExpression:
     """Sort criterion."""
+
     attribute: str
     order: SortOrder
 
@@ -363,6 +418,7 @@ class SortExpression:
 @dataclass
 class CompoundSort:
     """Combination of sort expressions."""
+
     sorts: Optional[List[SortExpression]] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -370,19 +426,22 @@ class CompoundSort:
         result = {}
         if self.sorts:
             result["sorts"] = [
-                {"attribute": s.attribute, "order": s.order}
-                for s in self.sorts
+                {"attribute": s.attribute, "order": s.order} for s in self.sorts
             ]
         return result
+
 
 @dataclass
 class VectorSearchConfig:
     """Configuration for vector search."""
+
     ef_search: int = 200
+
 
 @dataclass
 class SearchRequest:
     """Request body for POST search."""
+
     collection: str
     query: str = ""
     fields: Optional[List[str]] = None
@@ -394,13 +453,26 @@ class SearchRequest:
     vector_query: Optional[List[float]] = None
     use_nli: Optional[bool] = None
     field_config: Optional[Dict[str, VectorSearchConfig]] = None
-    queries: Optional[Dict[str, str]] = None  # For multi-query search, map of field to query string
-    vector_queries: Optional[Dict[str, List[float]]] = None  # For multi-query search, map of field to vector
+    queries: Optional[Dict[str, str]] = (
+        None  # For multi-query search, map of field to query string
+    )
+    vector_queries: Optional[Dict[str, List[float]]] = (
+        None  # For multi-query search, map of field to vector
+    )
+    fuzzy_algo: Optional[str] = None
+
+
+class FuzzyAlgo:
+    """Fuzzy algorithm identifiers."""
+
+    LEVENSHTEIN = "levenshtein"
+    JARO_WINKLER = "jaro_winkler"
 
 
 @dataclass
 class Token:
     """Token in the query interpretation."""
+
     text: Optional[str] = None
     tag: Optional[str] = None
     label: Optional[str] = None
@@ -409,6 +481,7 @@ class Token:
 @dataclass
 class NumericalValue:
     """Numerical value with unit and multiplier."""
+
     unit: Optional[str] = None
     base_value: Optional[float] = None
     multiplier: Optional[float] = None
@@ -418,6 +491,7 @@ class NumericalValue:
 
 class FilterOperator:
     """Filter operator types."""
+
     EQUALS = "EQ"
     NOT_EQUALS = "NEQ"
     GREATER_THAN = "GT"
@@ -431,6 +505,7 @@ class FilterOperator:
 @dataclass
 class Filter:
     """Filter in the query interpretation."""
+
     resolved_by: Optional[List[str]] = None
     attribute: Optional[List[Token]] = None
     operation: Optional[Token] = None
@@ -444,6 +519,7 @@ class Filter:
 @dataclass
 class ValueFilter:
     """Value filter in the query interpretation."""
+
     resolved_by: Optional[List[str]] = None
     attribute: Optional[List[Token]] = None
     values: Optional[List[List[Token]]] = None
@@ -454,6 +530,7 @@ class ValueFilter:
 @dataclass
 class VectorQuery:
     """Vector query in the query interpretation."""
+
     resolved_by: Optional[List[str]] = None
     vector_query: Optional[str] = None
     vector_queries: Optional[Dict[str, str]] = None
@@ -463,6 +540,7 @@ class VectorQuery:
 @dataclass
 class Query:
     """Query interpretation from NLI."""
+
     vector_query: Optional[VectorQuery] = None
     filters: Optional[List[Filter]] = None
     value_filters: Optional[List[ValueFilter]] = None
@@ -471,15 +549,129 @@ class Query:
 @dataclass
 class SearchResponse:
     """Response for searching data."""
+
     success: bool
     data: List[Dict[str, Any]]
     interpretation: Optional[Query] = None
     message: Optional[str] = None
+    timing: Optional[Dict[str, int]] = None
+
+
+@dataclass
+class APIAuthConfig:
+    """API auth configuration for settings."""
+
+    search: bool = False
+    collections: bool = False
+    data: bool = False
+    explore: bool = False
+    oplog: bool = False
+
+
+@dataclass
+class ProviderArgumentValue:
+    """Provider argument key-value entry."""
+
+    key: str
+    value: str
+    is_secret: Optional[bool] = None
+
+
+@dataclass
+class SettingsAuth:
+    """Authentication settings."""
+
+    enable: bool
+    tested: bool
+    name: Optional[str] = None
+    arguments: Optional[List[ProviderArgumentValue]] = None
+    api_auth_config: Optional[APIAuthConfig] = None
+
+
+@dataclass
+class SettingsIntegration:
+    """Integration provider settings."""
+
+    enable: bool
+    name: Optional[str] = None
+    arguments: Optional[List[ProviderArgumentValue]] = None
+
+
+@dataclass
+class Settings:
+    """Server settings payload."""
+
+    auth: SettingsAuth
+    allowedOrigins: Optional[List[str]] = None
+    integrations: Optional[List[SettingsIntegration]] = None
+
+
+@dataclass
+class GetSettingsResponse:
+    """Response for get settings endpoint."""
+
+    success: bool
+    message: str
+    data: Optional[Settings] = None
+
+
+@dataclass
+class SettingsUpdateRequest:
+    """Request to update settings."""
+
+    auth: Optional[SettingsAuth] = None
+    tested: Optional[bool] = None
+    authConfig: Optional[SettingsAuth] = None
+    allowedOrigins: Optional[List[str]] = None
+    integration: Optional[Dict[str, SettingsIntegration]] = None
+
+
+@dataclass
+class SettingsProviderArguments:
+    """Provider argument specification."""
+
+    label: str
+    description: str
+    is_secret: Optional[bool] = None
+
+
+class SettingsProviderType:
+    """Settings provider categories."""
+
+    AUTH = "auth"
+    DATA_SOURCE = "data-source"
+
+
+@dataclass
+class SettingsProviderInfo:
+    """Provider metadata."""
+
+    name: str
+    type: str
+    arguments: Optional[List[SettingsProviderArguments]] = None
+
+
+@dataclass
+class SettingsAvailableProvidersData:
+    """Providers grouped by type."""
+
+    auth: Optional[List[SettingsProviderInfo]] = None
+    integrations: Optional[List[SettingsProviderInfo]] = None
+
+
+@dataclass
+class SettingsAvailableProvidersResponse:
+    """Response for listing settings providers."""
+
+    success: bool
+    message: str
+    data: Optional[SettingsAvailableProvidersData] = None
 
 
 @dataclass
 class StorageItem:
     """Item in the storage list."""
+
     name: str
     is_dir: bool
 
@@ -487,6 +679,7 @@ class StorageItem:
 @dataclass
 class ListStorageResponse:
     """Response for listing storage."""
+
     success: bool
     message: str
     data: Dict[str, List[StorageItem]]
@@ -495,6 +688,7 @@ class ListStorageResponse:
 @dataclass
 class ReadDocumentResponse:
     """Response for reading document contents."""
+
     success: bool
     message: str
     data: List[Dict[str, str]]
@@ -503,6 +697,7 @@ class ReadDocumentResponse:
 @dataclass
 class HealthResponse:
     """Response for health check."""
+
     success: bool
     version: str
 
@@ -510,6 +705,7 @@ class HealthResponse:
 @dataclass
 class DebugDistanceData:
     """Data returned from debug distance endpoint."""
+
     distance: float
     vector: List[float]
     custom_matcher_distance: Optional[float] = None
@@ -519,6 +715,7 @@ class DebugDistanceData:
 @dataclass
 class DebugDistanceResponse:
     """Response for debug distance endpoint."""
+
     success: bool
     message: str
     data: Optional[DebugDistanceData] = None
@@ -527,6 +724,7 @@ class DebugDistanceResponse:
 @dataclass
 class DebugNeighbor:
     """Neighbor node in the graph."""
+
     node_id: int
     vector_id: str
     field: str
@@ -537,6 +735,7 @@ class DebugNeighbor:
 @dataclass
 class DebugNodeInfo:
     """Detailed information about a node."""
+
     node_id: int
     vector_id: str
     field: str
@@ -548,6 +747,7 @@ class DebugNodeInfo:
 @dataclass
 class DebugNodeInfoResponse:
     """Response for debug node info endpoint."""
+
     success: bool
     message: str
     data: Optional[DebugNodeInfo] = None
@@ -556,6 +756,7 @@ class DebugNodeInfoResponse:
 @dataclass
 class DebugLevelInfo:
     """Level information."""
+
     level: int
     node_count: int
 
@@ -563,6 +764,7 @@ class DebugLevelInfo:
 @dataclass
 class DebugLevelsResponse:
     """Response for debug levels endpoint."""
+
     success: bool
     message: str
     data: Dict[str, List[DebugLevelInfo]]
@@ -571,6 +773,7 @@ class DebugLevelsResponse:
 @dataclass
 class DebugNodesAtLevelResponse:
     """Response for debug nodes at level endpoint."""
+
     success: bool
     message: str
     data: Dict[str, List[int]]
@@ -579,6 +782,7 @@ class DebugNodesAtLevelResponse:
 @dataclass
 class DebugVectorNode:
     """Vector node in the reference node response."""
+
     id: int
     field: str
     vector: List[float]
@@ -587,6 +791,7 @@ class DebugVectorNode:
 @dataclass
 class DebugReferenceNode:
     """Reference node with its metadata and vector nodes."""
+
     id: str
     metadata: Dict[str, Any]
     nodes: List[DebugVectorNode]
@@ -595,6 +800,7 @@ class DebugReferenceNode:
 @dataclass
 class DebugReferenceNodeResponse:
     """Response for debug reference node endpoint."""
+
     success: bool
     message: str
     data: Optional[DebugReferenceNode] = None
@@ -603,12 +809,14 @@ class DebugReferenceNodeResponse:
 @dataclass
 class DebugGetEmbeddingsRequest:
     """Request to get embeddings for debug purposes."""
+
     texts: List[str]
 
 
 @dataclass
 class DebugGetEmbeddingsResponse:
     """Response for getting debug embeddings."""
+
     success: bool
     message: str
     data: Optional[List[List[float]]] = None
@@ -617,6 +825,7 @@ class DebugGetEmbeddingsResponse:
 @dataclass
 class EmbeddingModel:
     """Embedding model."""
+
     name: str
     is_default: bool
 
@@ -624,6 +833,7 @@ class EmbeddingModel:
 @dataclass
 class EmbeddingProvider:
     """Embedding provider with its models."""
+
     name: str
     is_default: bool
     models: List[EmbeddingModel]
@@ -632,6 +842,7 @@ class EmbeddingProvider:
 @dataclass
 class ListEmbeddingModelsResponse:
     """Response for listing embedding models."""
+
     success: bool
     message: str
     data: List[EmbeddingProvider]
@@ -641,6 +852,7 @@ class ListEmbeddingModelsResponse:
 @dataclass
 class OplogStatusResponse:
     """Oplog status response."""
+
     success: bool
     message: str
     last_lsn: int
@@ -651,6 +863,7 @@ class OplogStatusResponse:
 @dataclass
 class UpdateReplicaLSNRequest:
     """Replica LSN update request."""
+
     collection: str
     replica_id: str
     lsn: int
@@ -659,6 +872,7 @@ class UpdateReplicaLSNRequest:
 @dataclass
 class UpdateReplicaLSNResponse:
     """Update response."""
+
     success: bool
     message: str
 
@@ -666,18 +880,21 @@ class UpdateReplicaLSNResponse:
 @dataclass
 class RegisterReplicaRequest:
     """Replica registration request."""
+
     replica_id: str
 
 
 @dataclass
 class UnRegisterReplicaRequest:
     """Replica unregistration request."""
+
     replica_id: str
 
 
 @dataclass
 class Record:
     """Record structure."""
+
     id: str
     fields: Dict[str, Any]
     keyword_fields: Optional[Dict[str, bool]] = None
@@ -691,6 +908,7 @@ class Record:
 @dataclass
 class OplogEntry:
     """Single entry in the operation log."""
+
     lsn: int
     timestamp: datetime
     collection: str
@@ -711,6 +929,7 @@ class OplogEntry:
 @dataclass
 class GetOplogResponse:
     """Oplog response."""
+
     success: bool
     message: str
     entries: List[OplogEntry]
@@ -720,12 +939,14 @@ class GetOplogResponse:
 
 class SyncStatus:
     """Sync status for replicas."""
+
     READY = "ready"
     SYNCING = "syncing"
 
 
 class ReplicaType(IntEnum):
     """Type of replica."""
+
     READ_REPLICA = 0
     WRITE_REPLICA = 1
     SINGLE_NODE = 2
@@ -734,6 +955,7 @@ class ReplicaType(IntEnum):
 @dataclass
 class Replica:
     """Replica information."""
+
     id: str
     address: str
     is_healthy: bool
@@ -743,6 +965,7 @@ class Replica:
 @dataclass
 class Status:
     """Overall status of the registry."""
+
     write_replica: Replica
     read_replicas: List[Replica]
     available: int
@@ -752,6 +975,7 @@ class Status:
 @dataclass
 class ProxyStats:
     """Proxy statistics."""
+
     active_proxies: int
     targets: List[str]
 
@@ -759,6 +983,7 @@ class ProxyStats:
 @dataclass
 class DiscoveryStats:
     """Discovery statistics."""
+
     registry: Status
     proxy: ProxyStats
 
@@ -766,6 +991,7 @@ class DiscoveryStats:
 @dataclass
 class UpdateSyncStatusRequest:
     """Request to update sync status."""
+
     account_id: str
     address: str
     status: str  # SyncStatus
@@ -774,6 +1000,7 @@ class UpdateSyncStatusRequest:
 @dataclass
 class RegisterToDiscoveryRequest:
     """Request to register to discovery service."""
+
     account_id: str
     address: str
     id: str

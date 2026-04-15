@@ -42,6 +42,8 @@ from shilp.models import (
     AttributeType,
     CategorySchema,
     CategoryValue,
+    EnableMetadataStoreRequest,
+    EnableMetadataStoreResponse,
     ListNLIVerticalsResponse,
     VerticalInfo,
     OplogStatusResponse,
@@ -51,13 +53,31 @@ from shilp.models import (
     RegisterReplicaRequest,
     UnRegisterReplicaRequest,
     StorageBackendType,
+    FuzzyAlgo,
+    GetSettingsResponse,
+    Settings,
+    SettingsAuth,
+    APIAuthConfig,
+    ProviderArgumentValue,
+    SettingsIntegration,
+    SettingsUpdateRequest,
+    SettingsAvailableProvidersResponse,
+    SettingsAvailableProvidersData,
+    SettingsProviderInfo,
+    SettingsProviderArguments,
 )
 
 
 class Client:
     """Client for the Shilp API."""
 
-    def __init__(self, base_url: str, timeout: int = 30, session: Optional[requests.Session] = None):
+    def __init__(
+        self,
+        base_url: str,
+        timeout: int = 30,
+        session: Optional[requests.Session] = None,
+        auth_token: Optional[str] = None,
+    ):
         """
         Initialize the Shilp API client.
 
@@ -65,10 +85,22 @@ class Client:
             base_url: Base URL of the Shilp server (e.g., "http://localhost:3000")
             timeout: Request timeout in seconds (default: 30)
             session: Optional custom requests.Session instance
+            auth_token: Optional auth token to send as Bearer token
         """
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
         self.session = session or requests.Session()
+        self.auth_token = auth_token
+
+    def set_auth_token(self, token: str) -> None:
+        """Set auth token used in Authorization header for API calls."""
+        self.auth_token = token
+
+    def _build_auth_headers(self) -> Optional[Dict[str, str]]:
+        """Build auth headers for API requests."""
+        if not self.auth_token:
+            return None
+        return {"Authorization": f"Bearer {self.auth_token}"}
 
     def _request(
         self,
@@ -93,12 +125,13 @@ class Client:
             requests.HTTPError: If the request fails
         """
         url = urljoin(self.base_url, path)
-        
+
         response = self.session.request(
             method=method,
             url=url,
             json=json_data,
             params=params,
+            headers=self._build_auth_headers(),
             timeout=self.timeout,
         )
 
@@ -133,12 +166,13 @@ class Client:
             requests.HTTPError: If the request fails
         """
         url = urljoin(self.base_url, path)
-        
+
         response = self.session.request(
             method=method,
             url=url,
             json=json_data,
             params=params,
+            headers=self._build_auth_headers(),
             timeout=self.timeout,
             stream=True,
         )
@@ -166,12 +200,13 @@ class Client:
             requests.HTTPError: If the request fails
         """
         url = urljoin(self.base_url, path)
-        
-        with open(file_path, 'rb') as f:
-            files = {'file': f}
+
+        with open(file_path, "rb") as f:
+            files = {"file": f}
             response = self.session.post(
                 url=url,
                 files=files,
+                headers=self._build_auth_headers(),
                 timeout=self.timeout,
             )
 
@@ -204,35 +239,38 @@ class Client:
         """
         data = self._request("GET", "/api/collections/v1/")
         # Convert nested collections
-        if 'data' in data:
-            data['data'] = [
+        if "data" in data:
+            data["data"] = [
                 Collection(
-                    name=c['name'],
-                    is_loaded=c['is_loaded'],
-                    fields=c['fields'],
-                    searchable_fields=c['searchable_fields'],
-                    metadata=c.get('metadata'),
-                    has_metadata_enabled=c.get('has_metadata_enabled', False),
-                    no_reference_storage=c.get('no_reference_storage', False),
-                    storage_type=StorageBackendType(c.get('storage_type', 0)),
-                    reference_storage_type=StorageBackendType(c.get('reference_storage_type', 0)),
-                    is_pq_enabled=c.get('is_pq_enabled', False),
-                    field_config=c.get('field_config'),
-                    is_nli_enabled=c.get('is_nli_enabled'),
-                    nli_domain=c.get('nli_domain'),
+                    name=c["name"],
+                    is_loaded=c["is_loaded"],
+                    fields=c["fields"],
+                    searchable_fields=c["searchable_fields"],
+                    metadata=c.get("metadata"),
+                    has_metadata_enabled=c.get("has_metadata_enabled", False),
+                    no_reference_storage=c.get("no_reference_storage", False),
+                    storage_type=StorageBackendType(c.get("storage_type", 0)),
+                    reference_storage_type=StorageBackendType(
+                        c.get("reference_storage_type", 0)
+                    ),
+                    is_pq_enabled=c.get("is_pq_enabled", False),
+                    field_config=c.get("field_config"),
+                    is_nli_enabled=c.get("is_nli_enabled"),
+                    nli_domain=c.get("nli_domain"),
+                    total_no_of_documents=c.get("total_no_of_documents", 0),
                 )
-                for c in data['data']
+                for c in data["data"]
             ]
         # Convert metadata_info
-        if 'metadata_info' in data and data['metadata_info']:
-            data['metadata_info'] = [
+        if "metadata_info" in data and data["metadata_info"]:
+            data["metadata_info"] = [
                 MetadataSupportInfo(
-                    support_metadata=m['support_metadata'],
-                    name=m['name'],
-                    type=StorageBackendType(m['type']),
-                    is_default=m['is_default'],
+                    support_metadata=m["support_metadata"],
+                    name=m["name"],
+                    type=StorageBackendType(m["type"]),
+                    is_default=m["is_default"],
                 )
-                for m in data['metadata_info']
+                for m in data["metadata_info"]
             ]
         return ListCollectionsResponse(**data)
 
@@ -325,6 +363,33 @@ class Client:
         data = self._request("POST", f"/api/collections/v1/{name}/flush")
         return GenericResponse(**data)
 
+    def enable_metadata_store(
+        self,
+        collection_name: str,
+        request: EnableMetadataStoreRequest,
+    ) -> EnableMetadataStoreResponse:
+        """
+        Enable metadata store for a collection.
+
+        Args:
+            collection_name: Name of the collection
+            request: Metadata store configuration
+
+        Returns:
+            EnableMetadataStoreResponse with enablement status
+        """
+        json_data: Dict[str, Any] = {}
+        if request.fields is not None:
+            json_data["fields"] = [
+                {"name": f.name, "type": f.type} for f in request.fields
+            ]
+        data = self._request(
+            "POST",
+            f"/api/collections/v1/{collection_name}/metadata/enable",
+            json_data=json_data,
+        )
+        return EnableMetadataStoreResponse(**data)
+
     def reindex_collection(self, name: str) -> GenericResponse:
         """
         Re-index a collection for debug purposes.
@@ -362,7 +427,9 @@ class Client:
         Returns:
             GenericResponse indicating success or failure
         """
-        data = self._request("DELETE", f"/api/collections/v1/{collection_name}/{record_id}")
+        data = self._request(
+            "DELETE", f"/api/collections/v1/{collection_name}/{record_id}"
+        )
         return GenericResponse(**data)
 
     def expiry_cleanup(self, collection_name: str) -> GenericResponse:
@@ -375,7 +442,9 @@ class Client:
         Returns:
             GenericResponse indicating success or failure
         """
-        data = self._request("POST", f"/api/collections/v1/{collection_name}/expiry-cleanup")
+        data = self._request(
+            "POST", f"/api/collections/v1/{collection_name}/expiry-cleanup"
+        )
         return GenericResponse(**data)
 
     def export_collection(self, name: str) -> BinaryIO:
@@ -470,7 +539,7 @@ class Client:
             json_data["file_path"] = request.file_path
         if request.source_type is not None:
             json_data["source_type"] = request.source_type
-        
+
         # MongoDB source configuration
         if request.database_name is not None:
             json_data["database_name"] = request.database_name
@@ -480,7 +549,7 @@ class Client:
             json_data["query"] = request.query
         if request.mongo_fetch_batch_size is not None:
             json_data["mongo_fetch_batch_size"] = request.mongo_fetch_batch_size
-        
+
         # Common configuration
         if request.fields is not None:
             json_data["fields"] = request.fields
@@ -519,6 +588,11 @@ class Client:
             raise ValueError("Collection name cannot be empty")
         if not request.query and not request.vector_query:
             raise ValueError("At least one of query or vector_query must be provided")
+        if request.fuzzy_algo is not None and request.fuzzy_algo not in (
+            FuzzyAlgo.LEVENSHTEIN,
+            FuzzyAlgo.JARO_WINKLER,
+        ):
+            raise ValueError(f"invalid fuzzy algorithm - {request.fuzzy_algo}")
 
         json_data = {
             "collection": request.collection,
@@ -551,6 +625,8 @@ class Client:
             json_data["queries"] = request.queries
         if request.vector_queries is not None:
             json_data["vector_queries"] = request.vector_queries
+        if request.fuzzy_algo is not None:
+            json_data["fuzzy_algo"] = request.fuzzy_algo
 
         data = self._request("POST", "/api/data/v1/search", json_data=json_data)
         return SearchResponse(**data)
@@ -569,7 +645,9 @@ class Client:
         data = self._upload_file("/api/data/v1/storage/upload", file_path)
         return GenericResponse(**data)
 
-    def list_storage(self, path: str = "", source: Optional[str] = None) -> ListStorageResponse:
+    def list_storage(
+        self, path: str = "", source: Optional[str] = None
+    ) -> ListStorageResponse:
         """
         List contents of a directory in uploads storage.
         If the source is mongodb, then empty path lists all DBs. If path is a DB, lists all collections in that DB.
@@ -586,11 +664,13 @@ class Client:
             params["path"] = path
         if source:
             params["source"] = source
-        
+
         data = self._request("GET", "/api/data/v1/storage/list", params=params)
         return ListStorageResponse(**data)
 
-    def read_document(self, path: str, options: Optional[FileReaderOptions] = None) -> ReadDocumentResponse:
+    def read_document(
+        self, path: str, options: Optional[FileReaderOptions] = None
+    ) -> ReadDocumentResponse:
         """
         Read the first few rows of a CSV document or MongoDB collection.
         If the source is mongodb, then path is in the format "database/collection".
@@ -608,10 +688,10 @@ class Client:
         """
         if not path:
             raise ValueError("path cannot be empty")
-        
+
         if options is None:
             options = FileReaderOptions()
-        
+
         if options.limit < 0:
             raise ValueError("limit cannot be negative")
         if options.skip < 0:
@@ -626,11 +706,12 @@ class Client:
             params["skip"] = str(options.skip)
         if options.source == "mongodb" and options.mongo_filter:
             import json
+
             params["mongo_filter"] = json.dumps(options.mongo_filter)
 
         data = self._request("GET", "/api/data/v1/storage/read", params=params)
         return ReadDocumentResponse(**data)
-    
+
     def list_embedding_models(self) -> ListEmbeddingModelsResponse:
         """
         List all available embedding providers and their models.
@@ -651,7 +732,9 @@ class Client:
         data = self._request("GET", "/api/data/v1/ingest/sources")
         return ListIngestionSourcesResponse(**data)
 
-    def stream_ingest_stats(self, collection: str, callback: Callable[[str], None]) -> None:
+    def stream_ingest_stats(
+        self, collection: str, callback: Callable[[str], None]
+    ) -> None:
         """
         Stream ingestion statistics via SSE.
 
@@ -662,9 +745,11 @@ class Client:
         Note:
             This is a blocking call that streams events until connection closes.
         """
-        url = urljoin(self.base_url, f"/api/data/v1/ingest/stats?collection={collection}")
+        url = urljoin(
+            self.base_url, f"/api/data/v1/ingest/stats?collection={collection}"
+        )
         response = self.session.get(url, stream=True, timeout=self.timeout)
-        
+
         if response.status_code >= 400:
             raise requests.HTTPError(
                 f"API error: {response.text} (status: {response.status_code})",
@@ -673,11 +758,15 @@ class Client:
 
         for line in response.iter_lines():
             if line:
-                callback(line.decode('utf-8'))
+                callback(line.decode("utf-8"))
 
     # Debug Operations
     def get_collection_distance(
-        self, collection_name: str, field: str, node_id: int, text: str,
+        self,
+        collection_name: str,
+        field: str,
+        node_id: int,
+        text: str,
         custom_matcher_text: Optional[str] = None,
     ) -> DebugDistanceResponse:
         """
@@ -701,8 +790,8 @@ class Client:
             f"/api/collections/v1/debug/{collection_name}/{field}/distance/{node_id}",
             params=params,
         )
-        if 'data' in raw and isinstance(raw['data'], dict):
-            raw['data'] = DebugDistanceData(**raw['data'])
+        if "data" in raw and isinstance(raw["data"], dict):
+            raw["data"] = DebugDistanceData(**raw["data"])
         return DebugDistanceResponse(**raw)
 
     def get_collection_node_info(
@@ -771,7 +860,9 @@ class Client:
         Returns:
             DebugLevelsResponse with level information
         """
-        data = self._request("GET", f"/api/collections/v1/debug/{collection_name}/levels")
+        data = self._request(
+            "GET", f"/api/collections/v1/debug/{collection_name}/levels"
+        )
         return DebugLevelsResponse(**data)
 
     def get_collection_nodes_at_level(
@@ -811,18 +902,24 @@ class Client:
             f"/api/collections/v1/debug/{collection_name}/nodes/reference_node/{node_id}",
         )
         # parse nodes in data if present
-        if 'data' in data and isinstance(data['data'], dict) and 'nodes' in data['data'] and isinstance(data['data']['nodes'], list):
-            data['data'] = DebugReferenceNode(
-                id=data['data'].get('id'),
-                metadata=data['data'].get('metadata'),
+        if (
+            "data" in data
+            and isinstance(data["data"], dict)
+            and "nodes" in data["data"]
+            and isinstance(data["data"]["nodes"], list)
+        ):
+            data["data"] = DebugReferenceNode(
+                id=data["data"].get("id"),
+                metadata=data["data"].get("metadata"),
                 nodes=[
-                DebugVectorNode(
-                    id=n.get('id'),
-                    field=n.get('field'),
-                    vector=n.get('vector'),
-                )
-                for n in data['data']['nodes']
-            ])
+                    DebugVectorNode(
+                        id=n.get("id"),
+                        field=n.get("field"),
+                        vector=n.get("vector"),
+                    )
+                    for n in data["data"]["nodes"]
+                ],
+            )
         return DebugReferenceNodeResponse(**data)
 
     def get_collection_embeddings(
@@ -865,18 +962,20 @@ class Client:
             f"/api/collections/v1/{collection_name}/data",
             params={"offset": offset, "limit": limit},
         )
-        if 'data' in raw and isinstance(raw['data'], list):
-            raw['data'] = [
+        if "data" in raw and isinstance(raw["data"], list):
+            raw["data"] = [
                 CollectionDataRecord(
-                    id=r['id'],
-                    data=r.get('data', {}),
-                    vectors=r.get('vectors'),
+                    id=r["id"],
+                    data=r.get("data", {}),
+                    vectors=r.get("vectors"),
                 )
-                for r in raw['data']
+                for r in raw["data"]
             ]
         return GetCollectionDataResponse(**raw)
 
-    def enable_nli(self, collection: str, vertical: str, callback: Callable[[str], None]) -> None:
+    def enable_nli(
+        self, collection: str, vertical: str, callback: Callable[[str], None]
+    ) -> None:
         """
         Enable Natural Language Inference for a collection via SSE stream.
 
@@ -889,7 +988,9 @@ class Client:
             This is a blocking call that streams events until connection closes.
         """
         params = f"vertical={vertical}"
-        url = urljoin(self.base_url, f"/api/collections/v1/{collection}/nli/enable?{params}")
+        url = urljoin(
+            self.base_url, f"/api/collections/v1/{collection}/nli/enable?{params}"
+        )
         response = self.session.get(url, stream=True, timeout=self.timeout)
 
         if response.status_code >= 400:
@@ -900,9 +1001,11 @@ class Client:
 
         for line in response.iter_lines():
             if line:
-                callback(line.decode('utf-8'))
+                callback(line.decode("utf-8"))
 
-    def get_collection_schema(self, collection_name: str) -> GetCollectionSchemaResponse:
+    def get_collection_schema(
+        self, collection_name: str
+    ) -> GetCollectionSchemaResponse:
         """
         Get the schema for a collection.
 
@@ -913,34 +1016,44 @@ class Client:
             GetCollectionSchemaResponse with collection schema
         """
         raw = self._request("GET", f"/api/collections/v1/{collection_name}/schema")
-        if 'data' in raw and isinstance(raw['data'], dict):
-            d = raw['data']
+        if "data" in raw and isinstance(raw["data"], dict):
+            d = raw["data"]
             attributes = None
-            if 'attributes' in d and d['attributes'] is not None:
+            if "attributes" in d and d["attributes"] is not None:
                 attributes = [
                     Attribute(
-                        name=a.get('name'),
-                        type=AttributeType(a['type']) if a.get('type') is not None else None,
-                        index_type=a.get('index_type'),
-                        is_metadata=a.get('is_metadata'),
+                        name=a.get("name"),
+                        type=(
+                            AttributeType(a["type"])
+                            if a.get("type") is not None
+                            else None
+                        ),
+                        index_type=a.get("index_type"),
+                        is_metadata=a.get("is_metadata"),
                     )
-                    for a in d['attributes']
+                    for a in d["attributes"]
                 ]
             value_schema = None
-            if 'value_schema' in d and d['value_schema'] is not None:
+            if "value_schema" in d and d["value_schema"] is not None:
                 value_schema = [
                     CategorySchema(
-                        name=cs.get('name'),
-                        index_type=cs.get('index_type'),
-                        values=[
-                            CategoryValue(value=v.get('value'), count=v.get('count'))
-                            for v in cs['values']
-                        ] if cs.get('values') is not None else None,
-                        synonyms=cs.get('synonyms'),
+                        name=cs.get("name"),
+                        index_type=cs.get("index_type"),
+                        values=(
+                            [
+                                CategoryValue(
+                                    value=v.get("value"), count=v.get("count")
+                                )
+                                for v in cs["values"]
+                            ]
+                            if cs.get("values") is not None
+                            else None
+                        ),
+                        synonyms=cs.get("synonyms"),
                     )
-                    for cs in d['value_schema']
+                    for cs in d["value_schema"]
                 ]
-            raw['data'] = CollectionSchema(
+            raw["data"] = CollectionSchema(
                 attributes=attributes,
                 value_schema=value_schema,
             )
@@ -954,16 +1067,172 @@ class Client:
             ListNLIVerticalsResponse with available verticals
         """
         raw = self._request("GET", "/api/data/v1/nli/verticals")
-        if 'data' in raw and isinstance(raw['data'], list):
-            raw['data'] = [
+        if "data" in raw and isinstance(raw["data"], list):
+            raw["data"] = [
                 VerticalInfo(
-                    name=v.get('name'),
-                    label=v.get('label'),
-                    is_native=v.get('is_native'),
+                    name=v.get("name"),
+                    label=v.get("label"),
+                    is_native=v.get("is_native"),
                 )
-                for v in raw['data']
+                for v in raw["data"]
             ]
         return ListNLIVerticalsResponse(**raw)
+
+    def get_settings(self) -> GetSettingsResponse:
+        """Retrieve current settings."""
+        raw = self._request("GET", "/api/settings/v1/")
+        if "data" in raw and isinstance(raw["data"], dict):
+            raw["data"] = self._parse_settings(raw["data"])
+        return GetSettingsResponse(**raw)
+
+    def update_settings(self, settings: SettingsUpdateRequest) -> GenericResponse:
+        """Update settings."""
+        json_data: Dict[str, Any] = {}
+        if settings.auth is not None:
+            json_data["auth"] = self._settings_auth_to_dict(settings.auth)
+        if settings.tested is not None:
+            json_data["tested"] = settings.tested
+        if settings.authConfig is not None:
+            json_data["authConfig"] = self._settings_auth_to_dict(settings.authConfig)
+        if settings.allowedOrigins is not None:
+            json_data["allowedOrigins"] = settings.allowedOrigins
+        if settings.integration is not None:
+            json_data["integration"] = {
+                k: self._settings_integration_to_dict(v)
+                for k, v in settings.integration.items()
+            }
+        raw = self._request("PUT", "/api/settings/v1/", json_data=json_data)
+        return GenericResponse(**raw)
+
+    def list_providers(self) -> SettingsAvailableProvidersResponse:
+        """List available auth/integration providers for settings."""
+        raw = self._request("GET", "/api/settings/v1/providers")
+        if "data" in raw and isinstance(raw["data"], dict):
+            data = raw["data"]
+            raw["data"] = SettingsAvailableProvidersData(
+                auth=[
+                    self._parse_settings_provider_info(item)
+                    for item in data.get("auth", []) or []
+                ],
+                integrations=[
+                    self._parse_settings_provider_info(item)
+                    for item in data.get("integrations", []) or []
+                ],
+            )
+        return SettingsAvailableProvidersResponse(**raw)
+
+    def _parse_settings(self, raw: Dict[str, Any]) -> Settings:
+        """Parse settings payload to typed model."""
+        auth_raw = raw.get("auth", {})
+        return Settings(
+            auth=self._parse_settings_auth(auth_raw),
+            allowedOrigins=raw.get("allowedOrigins"),
+            integrations=[
+                self._parse_settings_integration(item)
+                for item in raw.get("integrations", []) or []
+            ],
+        )
+
+    def _parse_settings_auth(self, raw: Dict[str, Any]) -> SettingsAuth:
+        """Parse auth settings."""
+        return SettingsAuth(
+            enable=raw.get("enable", False),
+            tested=raw.get("tested", False),
+            name=raw.get("name"),
+            arguments=[
+                ProviderArgumentValue(
+                    key=arg.get("key", ""),
+                    value=arg.get("value", ""),
+                    is_secret=arg.get("is_secret"),
+                )
+                for arg in raw.get("arguments", []) or []
+            ],
+            api_auth_config=(
+                APIAuthConfig(
+                    search=raw.get("apiAuthConfig", {}).get("search", False),
+                    collections=raw.get("apiAuthConfig", {}).get("collections", False),
+                    data=raw.get("apiAuthConfig", {}).get("data", False),
+                    explore=raw.get("apiAuthConfig", {}).get("explore", False),
+                    oplog=raw.get("apiAuthConfig", {}).get("oplog", False),
+                )
+                if raw.get("apiAuthConfig") is not None
+                else None
+            ),
+        )
+
+    def _parse_settings_integration(self, raw: Dict[str, Any]) -> SettingsIntegration:
+        """Parse integration settings."""
+        return SettingsIntegration(
+            enable=raw.get("enable", False),
+            name=raw.get("name"),
+            arguments=[
+                ProviderArgumentValue(
+                    key=arg.get("key", ""),
+                    value=arg.get("value", ""),
+                    is_secret=arg.get("is_secret"),
+                )
+                for arg in raw.get("arguments", []) or []
+            ],
+        )
+
+    def _settings_auth_to_dict(self, auth: SettingsAuth) -> Dict[str, Any]:
+        """Serialize auth settings."""
+        out: Dict[str, Any] = {"enable": auth.enable, "tested": auth.tested}
+        if auth.name is not None:
+            out["name"] = auth.name
+        if auth.arguments is not None:
+            out["arguments"] = [
+                (
+                    {"key": a.key, "value": a.value, "is_secret": a.is_secret}
+                    if a.is_secret is not None
+                    else {"key": a.key, "value": a.value}
+                )
+                for a in auth.arguments
+            ]
+        if auth.api_auth_config is not None:
+            out["apiAuthConfig"] = {
+                "search": auth.api_auth_config.search,
+                "collections": auth.api_auth_config.collections,
+                "data": auth.api_auth_config.data,
+                "explore": auth.api_auth_config.explore,
+                "oplog": auth.api_auth_config.oplog,
+            }
+        return out
+
+    def _settings_integration_to_dict(
+        self, integration: SettingsIntegration
+    ) -> Dict[str, Any]:
+        """Serialize integration settings."""
+        out: Dict[str, Any] = {"enable": integration.enable}
+        if integration.name is not None:
+            out["name"] = integration.name
+        if integration.arguments is not None:
+            out["arguments"] = [
+                (
+                    {"key": a.key, "value": a.value, "is_secret": a.is_secret}
+                    if a.is_secret is not None
+                    else {"key": a.key, "value": a.value}
+                )
+                for a in integration.arguments
+            ]
+        return out
+
+    def _parse_settings_provider_info(
+        self, raw: Dict[str, Any]
+    ) -> SettingsProviderInfo:
+        """Parse provider metadata."""
+        return SettingsProviderInfo(
+            name=raw.get("name", ""),
+            type=raw.get("type", ""),
+            arguments=[
+                SettingsProviderArguments(
+                    label=arg.get("label", ""),
+                    description=arg.get("description", ""),
+                    is_secret=arg.get("is_secret"),
+                )
+                for arg in raw.get("arguments", []) or []
+            ],
+        )
 
     # Oplog Operations
     def get_oplog_entries(

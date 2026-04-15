@@ -13,6 +13,8 @@ from shilp.models import (
     UnRegisterReplicaRequest,
     FileReaderOptions,
     DebugGetEmbeddingsRequest,
+    EnableMetadataStoreRequest,
+    SettingsUpdateRequest,
     # Response models
     GenericResponse,
     HealthResponse,
@@ -39,6 +41,9 @@ from shilp.models import (
     CategoryValue,
     ListNLIVerticalsResponse,
     VerticalInfo,
+    EnableMetadataStoreResponse,
+    GetSettingsResponse,
+    SettingsAvailableProvidersResponse,
     # Debug models
     DebugDistanceData,
     DebugDistanceResponse,
@@ -54,6 +59,7 @@ from shilp.models import (
     StorageBackendType,
     IndexType,
     IngestSourceType,
+    FuzzyAlgo,
     OpType,
     SyncStatus,
     ReplicaType,
@@ -69,9 +75,18 @@ from shilp.models import (
     DiscoveryStats,
     VectorCreateConfig,
     VectorSearchConfig,
+    Settings,
+    SettingsAuth,
+    APIAuthConfig,
+    ProviderArgumentValue,
+    SettingsIntegration,
+    SettingsProviderArguments,
+    SettingsProviderType,
+    SettingsProviderInfo,
+    SettingsAvailableProvidersData,
 )
 
-__version__ = "0.13.3"
+__version__ = "0.14.0"
 __all__ = [
     "Client",
     "DiscoveryClient",
@@ -85,6 +100,8 @@ __all__ = [
     "UnRegisterReplicaRequest",
     "FileReaderOptions",
     "DebugGetEmbeddingsRequest",
+    "EnableMetadataStoreRequest",
+    "SettingsUpdateRequest",
     # Response models
     "GenericResponse",
     "HealthResponse",
@@ -111,6 +128,9 @@ __all__ = [
     "CategoryValue",
     "ListNLIVerticalsResponse",
     "VerticalInfo",
+    "EnableMetadataStoreResponse",
+    "GetSettingsResponse",
+    "SettingsAvailableProvidersResponse",
     # Debug models
     "DebugDistanceData",
     "DebugDistanceResponse",
@@ -126,6 +146,7 @@ __all__ = [
     "StorageBackendType",
     "IndexType",
     "IngestSourceType",
+    "FuzzyAlgo",
     "OpType",
     "SyncStatus",
     "ReplicaType",
@@ -141,4 +162,13 @@ __all__ = [
     "DiscoveryStats",
     "VectorSearchConfig",
     "VectorCreateConfig",
+    "Settings",
+    "SettingsAuth",
+    "APIAuthConfig",
+    "ProviderArgumentValue",
+    "SettingsIntegration",
+    "SettingsProviderArguments",
+    "SettingsProviderType",
+    "SettingsProviderInfo",
+    "SettingsAvailableProvidersData",
 ]
