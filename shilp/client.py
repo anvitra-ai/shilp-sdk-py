@@ -1222,14 +1222,17 @@ class Client:
                 VerticalInfo(
                     name=v.get("name"),
                     label=v.get("label"),
-                    models=[
-                        NLIModelInfo(
-                            name=m.get("name"),
-                            version=m.get("version"),
-                        )
-                        for m in v.get("models", [])
-                    ]
-                    or None,
+                    models=(
+                        [
+                            NLIModelInfo(
+                                name=m.get("name"),
+                                version=m.get("version"),
+                            )
+                            for m in v.get("models", [])
+                        ]
+                        if v.get("models")
+                        else None
+                    ),
                     is_native=v.get("is_native"),
                     version=v.get("version"),
                 )
