@@ -1,6 +1,6 @@
 """Data models for Shilp SDK."""
 
-from enum import IntEnum
+from enum import IntEnum, Enum
 from typing import Any, Dict, List, Optional
 from datetime import datetime
 from dataclasses import dataclass, field
@@ -226,12 +226,22 @@ class GetCollectionSchemaResponse:
 
 
 @dataclass
+class NLIModelInfo:
+    """Information about an NLI model."""
+
+    name: Optional[str] = None
+    version: Optional[str] = None
+
+
+@dataclass
 class VerticalInfo:
     """Information about an NLI vertical."""
 
     name: Optional[str] = None
     label: Optional[str] = None
+    models: Optional[List["NLIModelInfo"]] = None
     is_native: Optional[bool] = None
+    version: Optional[str] = None
 
 
 @dataclass
@@ -1006,3 +1016,96 @@ class RegisterToDiscoveryRequest:
     id: str
     is_read: bool
     is_write: bool
+
+
+class ModelType(str, Enum):
+    """Type of model."""
+
+    COLLECTION = "collection"
+    VERTICAL = "vertical"
+
+
+@dataclass
+class Model:
+    """Information about a model."""
+
+    id: Optional[str] = None
+    project_id: Optional[str] = None
+    name: Optional[str] = None
+    description: Optional[str] = None
+    collection: Optional[str] = None
+    version: Optional[str] = None
+    model_type: Optional[str] = None
+    status: Optional[str] = None
+    supported_version: Optional[str] = None
+    labels: Optional[List[str]] = None
+    embedding_dim: Optional[int] = None
+    mode: Optional[str] = None
+    label_field: Optional[str] = None
+    num_samples: Optional[int] = None
+    skipped: Optional[int] = None
+    label_grouping: Optional[Dict[str, List[str]]] = None
+    classifier_selection_strategy: Optional[Dict[str, Any]] = None
+    file_path: Optional[str] = None
+    file_size: Optional[int] = None
+    enabled: Optional[bool] = None
+    created_at: Optional[Any] = None
+    updated_at: Optional[Any] = None
+    deleted_at: Optional[Any] = None
+
+
+@dataclass
+class CollectionModel:
+    """Collection model information."""
+
+    collection: str
+    models: List[Model]
+    upgrade_available: bool
+
+
+@dataclass
+class ListCollectionsModelsResponse:
+    """Response for listing collection models."""
+
+    success: bool
+    data: List[CollectionModel]
+    message: str
+
+
+@dataclass
+class GetCollectionModelResponse:
+    """Response for getting a collection model."""
+
+    success: bool
+    data: Optional[Model] = None
+    message: Optional[str] = None
+
+
+class UpdateModelsEventStatus(str, Enum):
+    """Status values for UpdateModelsEvent."""
+
+    UPDATING = "updating"
+    SUCCESS = "success"
+    ERROR = "error"
+    COMPLETE = "complete"
+
+
+@dataclass
+class UpdateModelsEvent:
+    """Event for model update progress."""
+
+    status: Optional[str] = None  # Use UpdateModelsEventStatus constants
+    message: Optional[str] = None  # Human-readable message
+    field: Optional[str] = None  # Model field being updated
+    total: Optional[int] = None  # Total models to update
+    current: Optional[int] = None  # Current model number
+    error: Optional[str] = None  # Error message if status is "error"
+
+
+@dataclass
+class GetModelResponse:
+    """Response for getting a model."""
+
+    success: bool
+    data: Optional[Model] = None
+    message: Optional[str] = None
