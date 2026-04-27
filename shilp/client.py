@@ -65,6 +65,11 @@ from shilp.models import (
     SettingsAvailableProvidersData,
     SettingsProviderInfo,
     SettingsProviderArguments,
+    ListCollectionsModelsResponse,
+    GetCollectionModelResponse,
+    UpdateModelsEvent,
+    Model,
+    CollectionModel,
 )
 
 
@@ -389,6 +394,141 @@ class Client:
             json_data=json_data,
         )
         return EnableMetadataStoreResponse(**data)
+
+    def list_collection_models(self) -> ListCollectionsModelsResponse:
+        """
+        List all collection models.
+
+        Returns:
+            ListCollectionsModelsResponse containing list of collection models
+        """
+        raw = self._request("GET", "/api/collections/v1/models")
+        if "data" in raw and isinstance(raw["data"], list):
+            parsed_data = []
+            for cm in raw["data"]:
+                models = []
+                if "models" in cm and isinstance(cm["models"], list):
+                    models = [
+                        Model(
+                            id=m.get("id"),
+                            project_id=m.get("project_id"),
+                            name=m.get("name"),
+                            description=m.get("description"),
+                            collection=m.get("collection"),
+                            version=m.get("version"),
+                            model_type=m.get("model_type"),
+                            status=m.get("status"),
+                            supported_version=m.get("supported_version"),
+                            labels=m.get("labels"),
+                            embedding_dim=m.get("embedding_dim"),
+                            mode=m.get("mode"),
+                            label_field=m.get("label_field"),
+                            num_samples=m.get("num_samples"),
+                            skipped=m.get("skipped"),
+                            label_grouping=m.get("label_grouping"),
+                            classifier_selection_strategy=m.get(
+                                "classifier_selection_strategy"
+                            ),
+                            file_path=m.get("file_path"),
+                            file_size=m.get("file_size"),
+                            enabled=m.get("enabled"),
+                            created_at=m.get("created_at"),
+                            updated_at=m.get("updated_at"),
+                            deleted_at=m.get("deleted_at"),
+                        )
+                        for m in cm["models"]
+                    ]
+                parsed_data.append(
+                    CollectionModel(
+                        collection=cm.get("collection", ""),
+                        models=models,
+                        upgrade_available=cm.get("upgrade_available", False),
+                    )
+                )
+            raw["data"] = parsed_data
+        return ListCollectionsModelsResponse(**raw)
+
+    def get_collection_model_info(
+        self, collection_name: str, model_id: str
+    ) -> GetCollectionModelResponse:
+        """
+        Get information about a specific collection model.
+
+        Args:
+            collection_name: Name of the collection
+            model_id: ID of the model
+
+        Returns:
+            GetCollectionModelResponse with model information
+        """
+        raw = self._request(
+            "GET", f"/api/collections/v1/{collection_name}/models/{model_id}"
+        )
+        if "data" in raw and raw["data"] is not None:
+            m = raw["data"]
+            raw["data"] = Model(
+                id=m.get("id"),
+                project_id=m.get("project_id"),
+                name=m.get("name"),
+                description=m.get("description"),
+                collection=m.get("collection"),
+                version=m.get("version"),
+                model_type=m.get("model_type"),
+                status=m.get("status"),
+                supported_version=m.get("supported_version"),
+                labels=m.get("labels"),
+                embedding_dim=m.get("embedding_dim"),
+                mode=m.get("mode"),
+                label_field=m.get("label_field"),
+                num_samples=m.get("num_samples"),
+                skipped=m.get("skipped"),
+                label_grouping=m.get("label_grouping"),
+                classifier_selection_strategy=m.get("classifier_selection_strategy"),
+                file_path=m.get("file_path"),
+                file_size=m.get("file_size"),
+                enabled=m.get("enabled"),
+                created_at=m.get("created_at"),
+                updated_at=m.get("updated_at"),
+                deleted_at=m.get("deleted_at"),
+            )
+        return GetCollectionModelResponse(**raw)
+
+    def update_collection_model(
+        self, collection_name: str, callback: Callable[[UpdateModelsEvent], None]
+    ) -> None:
+        """
+        Update collection model with streaming progress events.
+
+        Args:
+            collection_name: Name of the collection
+            callback: Function to call for each update event
+
+        Note:
+            This is a blocking call that streams events until connection closes.
+        """
+        url = urljoin(
+            self.base_url, f"/api/collections/v1/{collection_name}/models/update"
+        )
+        response = self.session.get(url, stream=True, timeout=self.timeout)
+
+        if response.status_code >= 400:
+            raise requests.HTTPError(
+                f"API error: {response.text} (status: {response.status_code})",
+                response=response,
+            )
+
+        for line in response.iter_lines():
+            if line:
+                event_data = json.loads(line.decode("utf-8"))
+                event = UpdateModelsEvent(
+                    status=event_data.get("status"),
+                    message=event_data.get("message"),
+                    field=event_data.get("field"),
+                    total=event_data.get("total"),
+                    current=event_data.get("current"),
+                    error=event_data.get("error"),
+                )
+                callback(event)
 
     def reindex_collection(self, name: str) -> GenericResponse:
         """
@@ -1066,13 +1206,25 @@ class Client:
         Returns:
             ListNLIVerticalsResponse with available verticals
         """
+        from shilp.models import NLIModelInfo
+
         raw = self._request("GET", "/api/data/v1/nli/verticals")
         if "data" in raw and isinstance(raw["data"], list):
             raw["data"] = [
                 VerticalInfo(
                     name=v.get("name"),
                     label=v.get("label"),
+                    models=[
+                        NLIModelInfo(
+                            name=m.get("name"),
+                            version=m.get("version"),
+                        )
+                        for m in v.get("models", [])
+                    ]
+                    if v.get("models")
+                    else None,
                     is_native=v.get("is_native"),
+                    version=v.get("version"),
                 )
                 for v in raw["data"]
             ]
