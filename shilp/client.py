@@ -512,7 +512,7 @@ class Client:
             self.base_url,
             f"/api/collections/v1/{quote(collection_name, safe='')}/models/update",
         )
-        response = self.session.get(url, stream=True, timeout=self.timeout)
+        response = self.session.post(url, stream=True, timeout=self.timeout)
 
         if response.status_code >= 400:
             raise requests.HTTPError(
@@ -523,10 +523,16 @@ class Client:
         for line in response.iter_lines():
             if line:
                 line_str = line.decode("utf-8")
-                # Handle SSE format with 'data: ' prefix if present
+                # Skip SSE event type lines
+                if line_str.startswith("event:"):
+                    continue
+                # Handle SSE format with 'data: ' prefix
                 if line_str.startswith("data: "):
                     line_str = line_str[6:]  # Remove 'data: ' prefix
-                # Skip SSE comment lines or empty data
+                else:
+                    # Skip lines that don't start with 'data:'
+                    continue
+                # Skip empty data or comment lines
                 if not line_str or line_str.startswith(":"):
                     continue
                 event_data = json.loads(line_str)
