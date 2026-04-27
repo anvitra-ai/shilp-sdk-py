@@ -1229,8 +1229,7 @@ class Client:
                         )
                         for m in v.get("models", [])
                     ]
-                    if v.get("models")
-                    else None,
+                    or None,
                     is_native=v.get("is_native"),
                     version=v.get("version"),
                 )

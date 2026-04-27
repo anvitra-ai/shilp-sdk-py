@@ -1,6 +1,6 @@
 """Data models for Shilp SDK."""
 
-from enum import IntEnum
+from enum import IntEnum, Enum
 from typing import Any, Dict, List, Optional
 from datetime import datetime
 from dataclasses import dataclass, field
@@ -1018,7 +1018,7 @@ class RegisterToDiscoveryRequest:
     is_write: bool
 
 
-class ModelType:
+class ModelType(str, Enum):
     """Type of model."""
 
     COLLECTION = "collection"
@@ -1081,7 +1081,7 @@ class GetCollectionModelResponse:
     message: Optional[str] = None
 
 
-class UpdateModelsEventStatus:
+class UpdateModelsEventStatus(str, Enum):
     """Status values for UpdateModelsEvent."""
 
     UPDATING = "updating"
