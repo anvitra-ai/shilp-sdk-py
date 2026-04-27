@@ -4,7 +4,7 @@ import json
 import requests
 from typing import Any, Dict, List, Optional, BinaryIO, Callable
 from io import IOBase
-from urllib.parse import urljoin
+from urllib.parse import urljoin, quote
 
 from shilp.models import (
     GenericResponse,
@@ -463,7 +463,8 @@ class Client:
             GetCollectionModelResponse with model information
         """
         raw = self._request(
-            "GET", f"/api/collections/v1/{collection_name}/models/{model_id}"
+            "GET",
+            f"/api/collections/v1/{quote(collection_name, safe='')}/models/{quote(model_id, safe='')}",
         )
         if "data" in raw and raw["data"] is not None:
             m = raw["data"]
@@ -508,7 +509,8 @@ class Client:
             This is a blocking call that streams events until connection closes.
         """
         url = urljoin(
-            self.base_url, f"/api/collections/v1/{collection_name}/models/update"
+            self.base_url,
+            f"/api/collections/v1/{quote(collection_name, safe='')}/models/update",
         )
         response = self.session.get(url, stream=True, timeout=self.timeout)
 
