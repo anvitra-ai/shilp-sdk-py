@@ -46,6 +46,7 @@ from shilp.models import (
     EnableMetadataStoreResponse,
     ListNLIVerticalsResponse,
     VerticalInfo,
+    NLIModelInfo,
     OplogStatusResponse,
     GetOplogResponse,
     UpdateReplicaLSNRequest,
@@ -519,7 +520,14 @@ class Client:
 
         for line in response.iter_lines():
             if line:
-                event_data = json.loads(line.decode("utf-8"))
+                line_str = line.decode("utf-8")
+                # Handle SSE format with 'data: ' prefix if present
+                if line_str.startswith("data: "):
+                    line_str = line_str[6:]  # Remove 'data: ' prefix
+                # Skip SSE comment lines or empty data
+                if not line_str or line_str.startswith(":"):
+                    continue
+                event_data = json.loads(line_str)
                 event = UpdateModelsEvent(
                     status=event_data.get("status"),
                     message=event_data.get("message"),
@@ -1206,8 +1214,6 @@ class Client:
         Returns:
             ListNLIVerticalsResponse with available verticals
         """
-        from shilp.models import NLIModelInfo
-
         raw = self._request("GET", "/api/data/v1/nli/verticals")
         if "data" in raw and isinstance(raw["data"], list):
             raw["data"] = [

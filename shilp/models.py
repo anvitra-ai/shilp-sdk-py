@@ -1081,11 +1081,20 @@ class GetCollectionModelResponse:
     message: Optional[str] = None
 
 
+class UpdateModelsEventStatus:
+    """Status values for UpdateModelsEvent."""
+
+    UPDATING = "updating"
+    SUCCESS = "success"
+    ERROR = "error"
+    COMPLETE = "complete"
+
+
 @dataclass
 class UpdateModelsEvent:
     """Event for model update progress."""
 
-    status: Optional[str] = None  # "updating", "success", "error", "complete"
+    status: Optional[str] = None  # Use UpdateModelsEventStatus constants
     message: Optional[str] = None  # Human-readable message
     field: Optional[str] = None  # Model field being updated
     total: Optional[int] = None  # Total models to update
